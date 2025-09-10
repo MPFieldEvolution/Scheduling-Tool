@@ -288,7 +288,7 @@
             margin-top: 10px;
         }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -487,6 +487,23 @@
             </div>
         </div>
     </div>
+
+    <!-- Add this where you want the autocomplete input to appear -->
+<gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
+<input type="hidden" id="locationAddress" />
+
+<script>
+window.addEventListener('load', function() {
+    const autocomplete = document.getElementById('locationAddressAutocomplete');
+    const addressInput = document.getElementById('locationAddress');
+    if (autocomplete && addressInput) {
+        autocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
+            const place = event.detail;
+            addressInput.value = place.formattedAddress || '';
+        });
+    }
+});
+</script>
 
     <script>
         // Data storage
