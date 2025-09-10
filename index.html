@@ -287,6 +287,7 @@
             margin-top: 10px;
         }
     </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw"></script>
 </head>
 <body>
     <div class="container">
@@ -492,6 +493,8 @@
         let locations = [];
         let scopes = [];
 
+        let currentLocationScopes = [];
+
         // Tab switching (fix: use event parameter)
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -634,6 +637,8 @@
             document.getElementById('locationContact').value = '';
             document.getElementById('locationNotes').value = '';
             document.getElementById('locationPriority').value = 'Medium';
+            currentLocationScopes = [];
+            renderLocationScopeList();
         }
 
         function updateLocationList() {
@@ -688,6 +693,7 @@
             scopes.push(scope);
             updateScopeList();
             clearScopeForm();
+            saveScopeTemplates();
         }
 
         function clearScopeForm() {
@@ -712,11 +718,13 @@
                     <button class="btn btn-danger" onclick="removeScope(${scope.id})">Remove</button>
                 </div>
             `).join('');
+            updateScopeTemplateSelect();
         }
 
         function removeScope(id) {
             scopes = scopes.filter(s => s.id !== id);
             updateScopeList();
+            saveScopeTemplates();
         }
 
         // Schedule Generation
@@ -1007,10 +1015,87 @@
             }
         });
 
-        // Load sample data on page load
+        // Scope templates (localStorage)
+        function saveScopeTemplates() {
+            localStorage.setItem('scopeTemplates', JSON.stringify(scopes));
+        }
+
+        function loadScopeTemplates() {
+            const saved = localStorage.getItem('scopeTemplates');
+            if (saved) {
+                scopes = JSON.parse(saved);
+                updateScopeList();
+            }
+        }
+
+        // On page load
         window.addEventListener('load', function() {
+            loadScopeTemplates();
             loadSampleData();
+            updateScopeTemplateSelect();
+            // Address autocomplete for location
+            if (window.google && google.maps && google.maps.places) {
+                const input = document.getElementById('locationAddress');
+                if (input) {
+                    new google.maps.places.Autocomplete(input, { types: ['address'] });
+                }
+            }
         });
+
+        function updateScopeTemplateSelect() {
+            const select = document.getElementById('scopeTemplateSelect');
+            if (!select) return;
+            select.innerHTML = scopes.map(s => `<option value="${s.type}">${s.type} (${s.duration}min, ${s.techCount} tech, x${s.complexity})</option>`).join('');
+        }
+
+        function addScopeToLocation() {
+            const select = document.getElementById('scopeTemplateSelect');
+            const qty = parseInt(document.getElementById('scopeTemplateQty').value);
+            if (!select.value || !qty) return;
+            currentLocationScopes.push({ type: select.value, qty });
+            renderLocationScopeList();
+        }
+
+        function renderLocationScopeList() {
+            const div = document.getElementById('locationScopeList');
+            div.innerHTML = currentLocationScopes.map(s => `<span>${s.qty} x ${s.type}</span>`).join(', ');
+            // Also update the hidden input for scope string
+            document.getElementById('locationScope').value = currentLocationScopes.map(s => `${s.qty} ${s.type}`).join(', ');
+        }
+
+        // When adding a location, reset the scope list
+        function clearLocationForm() {
+            document.getElementById('locationId').value = '';
+            document.getElementById('locationName').value = '';
+            document.getElementById('locationAddress').value = '';
+            document.getElementById('locationScope').value = '';
+            document.getElementById('locationAvailability').value = '';
+            document.getElementById('locationContact').value = '';
+            document.getElementById('locationNotes').value = '';
+            document.getElementById('locationPriority').value = 'Medium';
+            currentLocationScopes = [];
+            renderLocationScopeList();
+        }
+
+        // On page load, update the select
+        window.addEventListener('load', function() {
+            loadScopeTemplates();
+            loadSampleData();
+            updateScopeTemplateSelect();
+            // Address autocomplete for location
+            if (window.google && google.maps && google.maps.places) {
+                const input = document.getElementById('locationAddress');
+                if (input) {
+                    new google.maps.places.Autocomplete(input, { types: ['address'] });
+                }
+            }
+        });
+
+        // When scope templates change, update the select
+        function updateScopeList() {
+            // ...existing code...
+            updateScopeTemplateSelect();
+        }
     </script>
 </body>
 </html>
