@@ -294,7 +294,7 @@
     <script src="https://unpkg.com/@googlemaps/places-autocomplete-element@1.0.0/dist/index.min.js"></script>
     <script>
 window.addEventListener('DOMContentLoaded', function() {
-    // Listen for place selection and set hidden input value for technician address
+    // Technician Address autocomplete
     const techAutocomplete = document.getElementById('techAddressAutocomplete');
     const techInput = document.getElementById('techAddress');
     if (techAutocomplete && techInput) {
@@ -304,7 +304,7 @@ window.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Listen for place selection and set hidden input value for location address
+    // Location Address autocomplete
     const locAutocomplete = document.getElementById('locationAddressAutocomplete');
     const locInput = document.getElementById('locationAddress');
     if (locAutocomplete && locInput) {
@@ -1076,13 +1076,6 @@ window.addEventListener('DOMContentLoaded', function() {
             loadScopeTemplates();
             loadSampleData();
             updateScopeTemplateSelect();
-            // Address autocomplete for location
-            if (window.google && google.maps && google.maps.places) {
-                const input = document.getElementById('locationAddress');
-                if (input) {
-                    new google.maps.places.Autocomplete(input, { types: ['address'] });
-                }
-            }
         });
 
         function updateScopeTemplateSelect() {
@@ -1125,13 +1118,6 @@ window.addEventListener('DOMContentLoaded', function() {
             loadScopeTemplates();
             loadSampleData();
             updateScopeTemplateSelect();
-            // Address autocomplete for location
-            if (window.google && google.maps && google.maps.places) {
-                const input = document.getElementById('locationAddress');
-                if (input) {
-                    new google.maps.places.Autocomplete(input, { types: ['address'] });
-                }
-            }
         });
 
         // When scope templates change, update the select
