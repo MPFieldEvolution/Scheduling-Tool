@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Installation Project Scheduler</title>
+    <title>FE Installation Project Scheduler</title>
     <style>
         * {
             margin: 0;
@@ -12,8 +12,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, Helvetica, sans-serif;
+            background: #ff0000; /* Red background */
             min-height: 100vh;
             padding: 20px;
         }
@@ -28,14 +28,15 @@
         }
 
         h1 {
-            color: #333;
+            color: #ff0000; /* Red font */
             margin-bottom: 30px;
             text-align: center;
             font-size: 2.5em;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-family: Arial, Helvetica, sans-serif;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+            -webkit-text-fill-color: unset;
         }
 
         .tabs {
@@ -292,7 +293,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🛠️ Installation Project Scheduler</h1>
+        <h1>FE Installation Project Scheduler</h1>
         
         <div class="tabs">
             <button class="tab active" onclick="switchTab('technicians', event)">Technicians</button>
