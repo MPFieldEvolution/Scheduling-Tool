@@ -288,39 +288,15 @@
         }
     </style>
 </head>
-// ...existing code...
-const address = document.getElementById('techAddress').value;
-// ...existing code...
-if (!location || !count || !teamName) {
-    alert('Please fill in all required fields');
-    return;
-}
-
-const tech = {
-    id: Date.now(),
-    location,
-    address, // NEW
-    count,
-    teamName,
-    days,
-    startTime,
-    endTime,
-    specializations
-};
-// ...existing code...// ...existing code...
-<div class="form-group">
-    <label>Technician Address</label>
-    <input type="text" id="techAddress" placeholder="e.g., 100 Main St, City, State ZIP">
-</div>
-// ...existing code...<body>
+<body>
     <div class="container">
         <h1>🛠️ Installation Project Scheduler</h1>
         
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('technicians')">Technicians</button>
-            <button class="tab" onclick="switchTab('locations')">Locations</button>
-            <button class="tab" onclick="switchTab('scopes')">Scope Templates</button>
-            <button class="tab" onclick="switchTab('schedule')">Generate Schedule</button>
+            <button class="tab active" onclick="switchTab('technicians', event)">Technicians</button>
+            <button class="tab" onclick="switchTab('locations', event)">Locations</button>
+            <button class="tab" onclick="switchTab('scopes', event)">Scope Templates</button>
+            <button class="tab" onclick="switchTab('schedule', event)">Generate Schedule</button>
         </div>
 
         <!-- Technicians Section -->
@@ -333,6 +309,10 @@ const tech = {
                     <div class="form-group">
                         <label>Base Location</label>
                         <input type="text" id="techLocation" placeholder="e.g., Downtown Hub">
+                    </div>
+                    <div class="form-group">
+                        <label>Technician Address</label>
+                        <input type="text" id="techAddress" placeholder="e.g., 100 Main St, City, State ZIP">
                     </div>
                     <div class="form-group">
                         <label>Number of Technicians</label>
@@ -511,34 +491,45 @@ const tech = {
         let technicians = [];
         let locations = [];
         let scopes = [];
-        
-        // Tab switching
-        function switchTab(tabName) {
+
+        // Tab switching (fix: use event parameter)
+        function switchTab(tabName, event) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // fallback for inline onclick
+                const btns = document.querySelectorAll('.tab');
+                btns.forEach(btn => {
+                    if (btn.textContent.replace(/\s/g, '').toLowerCase().includes(tabName)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
             document.getElementById(tabName).classList.add('active');
         }
-        
+
         // Add Technician
         function addTechnician() {
-            const location = document.getElementById('techLocation').value;
+            const location = document.getElementById('techLocation').value.trim();
+            const address = document.getElementById('techAddress').value.trim();
             const count = parseInt(document.getElementById('techCount').value);
-            const teamName = document.getElementById('techTeamName').value;
+            const teamName = document.getElementById('techTeamName').value.trim();
             const days = Array.from(document.getElementById('techDays').selectedOptions).map(o => o.value);
             const startTime = document.getElementById('techStartTime').value;
             const endTime = document.getElementById('techEndTime').value;
-            const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim());
-            
+            const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim()).filter(Boolean);
+
             if (!location || !count || !teamName) {
                 alert('Please fill in all required fields');
                 return;
             }
-            
+
             const tech = {
                 id: Date.now(),
                 location,
+                address,
                 count,
                 teamName,
                 days,
@@ -546,21 +537,38 @@ const tech = {
                 endTime,
                 specializations
             };
-            
+
             technicians.push(tech);
             updateTechnicianList();
             clearTechForm();
         }
-        
+
         function clearTechForm() {
             document.getElementById('techLocation').value = '';
+            document.getElementById('techAddress').value = '';
             document.getElementById('techCount').value = '1';
             document.getElementById('techTeamName').value = '';
             document.getElementById('techSpecializations').value = '';
+            // Clear multi-select
+            const techDays = document.getElementById('techDays');
+            for (let i = 0; i < techDays.options.length; i++) {
+                techDays.options[i].selected = false;
+            }
+            // Set default days
+            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].forEach(day => {
+                const opt = Array.from(techDays.options).find(o => o.value === day);
+                if (opt) opt.selected = true;
+            });
+            document.getElementById('techStartTime').value = '08:00';
+            document.getElementById('techEndTime').value = '17:00';
         }
-        
+
         function updateTechnicianList() {
             const list = document.getElementById('technicianList');
+            if (technicians.length === 0) {
+                list.innerHTML = '<p style="color:#888;">No technician teams added yet.</p>';
+                return;
+            }
             list.innerHTML = technicians.map(tech => `
                 <div class="card">
                     <div class="card-header">
@@ -569,6 +577,7 @@ const tech = {
                     </div>
                     <div>
                         <p><strong>Location:</strong> ${tech.location}</p>
+                        <p><strong>Address:</strong> ${tech.address || '-'}</p>
                         <p><strong>Team Size:</strong> ${tech.count} technicians</p>
                         <p><strong>Available:</strong> ${tech.days.join(', ')}</p>
                         <p><strong>Hours:</strong> ${tech.startTime} - ${tech.endTime}</p>
@@ -577,28 +586,28 @@ const tech = {
                 </div>
             `).join('');
         }
-        
+
         function removeTechnician(id) {
             technicians = technicians.filter(t => t.id !== id);
             updateTechnicianList();
         }
-        
+
         // Add Location
         function addLocation() {
-            const siteId = document.getElementById('locationId').value;
-            const name = document.getElementById('locationName').value;
-            const address = document.getElementById('locationAddress').value;
-            const scope = document.getElementById('locationScope').value;
+            const siteId = document.getElementById('locationId').value.trim();
+            const name = document.getElementById('locationName').value.trim();
+            const address = document.getElementById('locationAddress').value.trim();
+            const scope = document.getElementById('locationScope').value.trim();
             const priority = document.getElementById('locationPriority').value;
-            const availability = document.getElementById('locationAvailability').value;
-            const contact = document.getElementById('locationContact').value;
-            const notes = document.getElementById('locationNotes').value;
-            
+            const availability = document.getElementById('locationAvailability').value.trim();
+            const contact = document.getElementById('locationContact').value.trim();
+            const notes = document.getElementById('locationNotes').value.trim();
+
             if (!siteId || !address || !scope) {
                 alert('Please fill in Site ID, Address, and Scope');
                 return;
             }
-            
+
             const location = {
                 id: Date.now(),
                 siteId,
@@ -610,12 +619,12 @@ const tech = {
                 contact,
                 notes
             };
-            
+
             locations.push(location);
             updateLocationList();
             clearLocationForm();
         }
-        
+
         function clearLocationForm() {
             document.getElementById('locationId').value = '';
             document.getElementById('locationName').value = '';
@@ -624,10 +633,15 @@ const tech = {
             document.getElementById('locationAvailability').value = '';
             document.getElementById('locationContact').value = '';
             document.getElementById('locationNotes').value = '';
+            document.getElementById('locationPriority').value = 'Medium';
         }
-        
+
         function updateLocationList() {
             const list = document.getElementById('locationList');
+            if (locations.length === 0) {
+                list.innerHTML = '<p style="color:#888;">No locations added yet.</p>';
+                return;
+            }
             list.innerHTML = locations.map(loc => `
                 <div class="card">
                     <div class="card-header">
@@ -645,24 +659,24 @@ const tech = {
                 </div>
             `).join('');
         }
-        
+
         function removeLocation(id) {
             locations = locations.filter(l => l.id !== id);
             updateLocationList();
         }
-        
+
         // Add Scope
         function addScope() {
-            const type = document.getElementById('scopeType').value;
+            const type = document.getElementById('scopeType').value.trim();
             const duration = parseInt(document.getElementById('scopeDuration').value);
             const techCount = parseInt(document.getElementById('scopeTechCount').value);
             const complexity = parseFloat(document.getElementById('scopeComplexity').value);
-            
+
             if (!type || !duration) {
                 alert('Please fill in Scope Type and Duration');
                 return;
             }
-            
+
             const scope = {
                 id: Date.now(),
                 type,
@@ -670,21 +684,25 @@ const tech = {
                 techCount,
                 complexity
             };
-            
+
             scopes.push(scope);
             updateScopeList();
             clearScopeForm();
         }
-        
+
         function clearScopeForm() {
             document.getElementById('scopeType').value = '';
             document.getElementById('scopeDuration').value = '';
             document.getElementById('scopeTechCount').value = '1';
             document.getElementById('scopeComplexity').value = '1';
         }
-        
+
         function updateScopeList() {
             const list = document.getElementById('scopeList');
+            if (scopes.length === 0) {
+                list.innerHTML = '<p style="color:#888;">No scope templates defined yet.</p>';
+                return;
+            }
             list.innerHTML = scopes.map(scope => `
                 <div class="scope-type-card">
                     <h5>${scope.type}</h5>
@@ -695,17 +713,16 @@ const tech = {
                 </div>
             `).join('');
         }
-        
+
         function removeScope(id) {
             scopes = scopes.filter(s => s.id !== id);
             updateScopeList();
         }
-        
+
         // Schedule Generation
         function parseScope(scopeString) {
             const items = [];
             const parts = scopeString.split(',');
-            
             parts.forEach(part => {
                 const match = part.trim().match(/(\d+)\s*(.+)/);
                 if (match) {
@@ -716,74 +733,56 @@ const tech = {
                     });
                 }
             });
-            
             return items;
         }
-        
+
         function calculateJobDuration(scopeString) {
             const scopeItems = parseScope(scopeString);
             let totalDuration = 0;
-            
             scopeItems.forEach(item => {
-                const scopeTemplate = scopes.find(s => 
+                const scopeTemplate = scopes.find(s =>
                     item.type.toLowerCase().includes(s.type.toLowerCase()) ||
                     s.type.toLowerCase().includes(item.type.toLowerCase())
                 );
-                
                 if (scopeTemplate) {
                     totalDuration += item.quantity * scopeTemplate.duration * scopeTemplate.complexity;
                 } else {
-                    // Default duration if no template found
-                    totalDuration += item.quantity * 30;
+                    totalDuration += item.quantity * 30; // fallback
                 }
             });
-            
             return totalDuration;
         }
-        
+
         function generateSchedule() {
             if (technicians.length === 0 || locations.length === 0) {
                 alert('Please add at least one technician team and one location');
                 return;
             }
-            
             const driveTime = parseInt(document.getElementById('driveTime').value);
             const bufferTime = parseInt(document.getElementById('bufferTime').value);
             const strategy = document.getElementById('optimizationStrategy').value;
-            
-            // Sort locations based on strategy
             let sortedLocations = [...locations];
             if (strategy === 'priority') {
                 const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
                 sortedLocations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
             }
-            
-            // Create schedule
             const schedule = {};
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
             let unassignedLocations = [...sortedLocations];
-            
             days.forEach(day => {
                 schedule[day] = [];
-                
-                // Get available technicians for this day
                 const availableTechs = technicians.filter(tech => tech.days.includes(day));
-                
                 availableTechs.forEach(tech => {
-                    const startTime = new Date(`2024-01-01 ${tech.startTime}`);
-                    const endTime = new Date(`2024-01-01 ${tech.endTime}`);
+                    const startTime = new Date(`2024-01-01T${tech.startTime}`);
+                    const endTime = new Date(`2024-01-01T${tech.endTime}`);
                     let currentTime = new Date(startTime);
                     const assignments = [];
-                    
-                    // Assign locations to this tech team
                     let i = 0;
                     while (i < unassignedLocations.length && currentTime < endTime) {
                         const location = unassignedLocations[i];
                         const jobDuration = calculateJobDuration(location.scope);
                         const totalTime = driveTime + jobDuration + bufferTime;
-                        
                         const jobEndTime = new Date(currentTime.getTime() + totalTime * 60000);
-                        
                         if (jobEndTime <= endTime) {
                             assignments.push({
                                 location: location,
@@ -791,14 +790,12 @@ const tech = {
                                 endTime: jobEndTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                                 duration: jobDuration
                             });
-                            
                             currentTime = jobEndTime;
                             unassignedLocations.splice(i, 1);
                         } else {
                             i++;
                         }
                     }
-                    
                     if (assignments.length > 0) {
                         schedule[day].push({
                             team: tech,
@@ -807,7 +804,6 @@ const tech = {
                     }
                 });
             });
-            
             displaySchedule(schedule, unassignedLocations);
             displayMetrics(schedule, unassignedLocations);
         }
@@ -815,16 +811,13 @@ const tech = {
         function displaySchedule(schedule, unassigned) {
             const output = document.getElementById('scheduleOutput');
             let html = '<h3>📅 Optimized Installation Schedule</h3>';
-            
             Object.entries(schedule).forEach(([day, teams]) => {
                 if (teams.length > 0) {
                     html += `<div class="schedule-day">`;
                     html += `<h4>${day}</h4>`;
-                    
                     teams.forEach(teamSchedule => {
                         html += `<div class="assignment">`;
                         html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
-                        
                         teamSchedule.assignments.forEach(assignment => {
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
                             html += `<span class="tech-tag">${assignment.startTime} - ${assignment.endTime}</span>`;
@@ -834,14 +827,11 @@ const tech = {
                             html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
                             html += `</div>`;
                         });
-                        
                         html += `</div>`;
                     });
-                    
                     html += `</div>`;
                 }
             });
-            
             if (unassigned.length > 0) {
                 html += `<div class="error">`;
                 html += `<h4>⚠️ Unassigned Locations (${unassigned.length})</h4>`;
@@ -851,17 +841,14 @@ const tech = {
                 html += `<p><strong>Consider adding more technician teams or extending working hours.</strong></p>`;
                 html += `</div>`;
             }
-            
             output.innerHTML = html;
         }
         
         function displayMetrics(schedule, unassigned) {
             const metrics = document.getElementById('metrics');
-            
             let totalJobs = 0;
             let totalTechHours = 0;
             let totalLocations = locations.length;
-            
             Object.values(schedule).forEach(teams => {
                 teams.forEach(teamSchedule => {
                     totalJobs += teamSchedule.assignments.length;
@@ -870,10 +857,8 @@ const tech = {
                     });
                 });
             });
-            
-            const completionRate = totalLocations > 0 ? 
+            const completionRate = totalLocations > 0 ?
                 ((totalLocations - unassigned.length) / totalLocations * 100).toFixed(1) : 0;
-            
             metrics.innerHTML = `
                 <div class="metric-card">
                     <div class="metric-value">${totalLocations - unassigned.length}/${totalLocations}</div>
@@ -893,14 +878,18 @@ const tech = {
                 </div>
             `;
         }
-        
+
         // Initialize with sample data for demonstration
         function loadSampleData() {
-            // Sample technicians
+            if (window.schedulerData && window.schedulerData.technicians && window.schedulerData.technicians.length > 0) {
+                loadData();
+                return;
+            }
             technicians = [
                 {
                     id: 1,
                     location: "Central Hub",
+                    address: "100 Main St, City, State ZIP",
                     count: 2,
                     teamName: "Team Alpha",
                     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -911,6 +900,7 @@ const tech = {
                 {
                     id: 2,
                     location: "North Station",
+                    address: "200 North Ave, City, State ZIP",
                     count: 3,
                     teamName: "Team Bravo",
                     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -919,8 +909,6 @@ const tech = {
                     specializations: ["PA", "VG"]
                 }
             ];
-            
-            // Sample locations
             locations = [
                 {
                     id: 1,
@@ -956,8 +944,6 @@ const tech = {
                     notes: "Security check required at gate"
                 }
             ];
-            
-            // Sample scope templates
             scopes = [
                 {
                     id: 1,
@@ -981,62 +967,46 @@ const tech = {
                     complexity: 1.5
                 }
             ];
-            
             updateTechnicianList();
             updateLocationList();
             updateScopeList();
         }
-        
-        // Auto-save functionality
+
+        // Auto-save functionality (in-memory only)
         function saveData() {
             const data = {
                 technicians,
                 locations,
                 scopes
             };
-            // In-memory storage only (no localStorage per requirements)
             window.schedulerData = data;
         }
-        
+
         function loadData() {
             if (window.schedulerData) {
                 technicians = window.schedulerData.technicians || [];
                 locations = window.schedulerData.locations || [];
                 scopes = window.schedulerData.scopes || [];
-                
                 updateTechnicianList();
                 updateLocationList();
                 updateScopeList();
             }
         }
-        
-        // Export schedule functionality
-        function exportSchedule() {
-            const schedule = document.getElementById('scheduleOutput').innerText;
-            const blob = new Blob([schedule], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `installation-schedule-${new Date().toISOString().split('T')[0]}.txt`;
-            a.click();
-        }
-        
-        // Keyboard shortcuts
+
+        // Keyboard shortcuts (improved: works in all browsers)
         document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                switch(e.key) {
-                    case 's':
-                        e.preventDefault();
-                        saveData();
-                        break;
-                    case 'g':
-                        e.preventDefault();
-                        generateSchedule();
-                        break;
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+                if (e.key.toLowerCase() === 's') {
+                    e.preventDefault();
+                    saveData();
+                }
+                if (e.key.toLowerCase() === 'g') {
+                    e.preventDefault();
+                    generateSchedule();
                 }
             }
         });
-        
+
         // Load sample data on page load
         window.addEventListener('load', function() {
             loadSampleData();
