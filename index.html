@@ -295,9 +295,11 @@
     <script>
 window.addEventListener('DOMContentLoaded', function() {
     // Helper for address autocomplete
-    function setupAddressAutocomplete(inputId) {
+    function setupAddressAutocomplete(inputId, dropdownId) {
         const input = document.getElementById(inputId);
-        if (!input) return;
+        const dropdown = document.getElementById(dropdownId);
+        if (!input || !dropdown) return;
+
         // Remove any previous autocomplete element
         let old = document.getElementById(inputId + '-autocomplete');
         if (old) old.remove();
@@ -309,8 +311,8 @@ window.addEventListener('DOMContentLoaded', function() {
         autocomplete.setAttribute('inputmode', 'text');
         autocomplete.setAttribute('placeholder', input.placeholder);
 
-        // Insert after the input
-        input.parentNode.appendChild(autocomplete);
+        // Insert into the dropdown container
+        dropdown.appendChild(autocomplete);
 
         // Sync input value to autocomplete
         input.addEventListener('input', () => {
@@ -326,16 +328,16 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     // Setup for Locations tab
-    setupAddressAutocomplete('locationAddress');
+    setupAddressAutocomplete('locationAddress', 'addressAutocompleteDropdown');
     // Setup for Technicians tab
-    setupAddressAutocomplete('techAddress');
+    setupAddressAutocomplete('techAddress', 'techAddressAutocompleteDropdown');
 
-    // Optional: re-setup autocomplete when switching tabs
+    // Re-setup autocomplete when switching tabs
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             setTimeout(() => {
-                setupAddressAutocomplete('locationAddress');
-                setupAddressAutocomplete('techAddress');
+                setupAddressAutocomplete('locationAddress', 'addressAutocompleteDropdown');
+                setupAddressAutocomplete('techAddress', 'techAddressAutocompleteDropdown');
             }, 100);
         });
     });
