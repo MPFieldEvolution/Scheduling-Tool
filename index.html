@@ -59,13 +59,13 @@
         }
 
         .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+            color: #ff0000;
+            border-bottom-color: #ff0000;
             font-weight: 600;
         }
 
         .tab:hover {
-            color: #667eea;
+            color: #ff0000;
         }
 
         .section {
@@ -111,8 +111,8 @@
 
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #ff0000;
+            box-shadow: 0 0 0 3px rgba(255, 0, 0, 0.1);
         }
 
         textarea {
@@ -122,7 +122,7 @@
 
         .btn {
             padding: 12px 24px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #ff0000, #b30000); /* Red gradient */
             color: white;
             border: none;
             border-radius: 8px;
@@ -130,12 +130,12 @@
             font-size: 16px;
             font-weight: 600;
             transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(255, 0, 0, 0.4);
         }
 
         .btn-secondary {
@@ -194,16 +194,16 @@
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #ff0000;
         }
 
         .schedule-day h4 {
-            color: #667eea;
+            color: #ff0000;
             margin-bottom: 10px;
         }
 
         .assignment {
-            background: #f0f4ff;
+            background: #fff0f0;
             padding: 10px;
             border-radius: 6px;
             margin-bottom: 8px;
@@ -211,7 +211,7 @@
 
         .tech-tag {
             display: inline-block;
-            background: #667eea;
+            background: #ff0000;
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -221,7 +221,7 @@
 
         .location-tag {
             display: inline-block;
-            background: #764ba2;
+            background: #b30000;
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -243,7 +243,7 @@
         }
 
         .scope-type-card h5 {
-            color: #667eea;
+            color: #ff0000;
             margin-bottom: 10px;
         }
 
@@ -255,7 +255,7 @@
         }
 
         .metric-card {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #ff0000, #b30000);
             color: white;
             padding: 20px;
             border-radius: 12px;
@@ -289,7 +289,9 @@
             margin-top: 10px;
         }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
+    <!-- Remove the old Google Maps JS API script, and use the new Place Autocomplete Element loader -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&loading=async&libraries=places"></script>
+    <script src="https://unpkg.com/@googlemaps/places-autocomplete-element@1.0.0/dist/index.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -377,7 +379,9 @@
                     </div>
                     <div class="form-group">
                         <label>Full Address</label>
-                        <input type="text" id="locationAddress" placeholder="123 Main St, City, State ZIP">
+                        <!-- Use the new Place Autocomplete Element -->
+                        <gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
+                        <input type="hidden" id="locationAddress" />
                     </div>
                     <div class="form-group">
                         <label>Scope of Work</label>
@@ -489,22 +493,19 @@
         </div>
     </div>
 
-    <!-- Add this where you want the autocomplete input to appear -->
-<gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
-<input type="hidden" id="locationAddress" />
-
-<script>
-window.addEventListener('load', function() {
-    const autocomplete = document.getElementById('locationAddressAutocomplete');
-    const addressInput = document.getElementById('locationAddress');
-    if (autocomplete && addressInput) {
-        autocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
-            const place = event.detail;
-            addressInput.value = place.formattedAddress || '';
-        });
-    }
-});
-</script>
+    <script>
+    // Place Autocomplete Element event handling for address
+    window.addEventListener('DOMContentLoaded', function() {
+        const autocomplete = document.getElementById('locationAddressAutocomplete');
+        const addressInput = document.getElementById('locationAddress');
+        if (autocomplete && addressInput) {
+            autocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
+                const place = event.detail;
+                addressInput.value = place.formattedAddress || '';
+            });
+        }
+    });
+    </script>
 
     <script>
         // Data storage
