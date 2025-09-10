@@ -379,9 +379,9 @@
                     </div>
                     <div class="form-group">
                         <label>Full Address</label>
-                        <!-- Use the new Place Autocomplete Element -->
-                        <gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
-                        <input type="hidden" id="locationAddress" />
+                        <!-- Use a visible text input for address, enhanced with Place Autocomplete Element -->
+                        <input id="locationAddress" type="text" placeholder="123 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
+                        <div id="addressAutocompleteDropdown" style="position:relative;"></div>
                     </div>
                     <div class="form-group">
                         <label>Scope of Work</label>
