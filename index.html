@@ -396,7 +396,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         <input type="text" id="techSpecializations" placeholder="e.g., VG, DC, PA (comma separated)">
                     </div>
                 </div>
-                <button class="btn" onclick="addTechnician()">Add Technician Team</button>
+                <button class="btn" id="addTechBtn" onclick="addTechnician()">Add Technician Team</button>
             </div>
             
             <div class="card">
@@ -558,6 +558,8 @@ window.addEventListener('DOMContentLoaded', function() {
 
         let currentLocationScopes = [];
 
+        let editTechId = null; // Track which tech is being edited
+
         // Tab switching (fix: use event parameter)
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -592,19 +594,39 @@ window.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const tech = {
-                id: Date.now(),
-                location,
-                address,
-                count,
-                teamName,
-                days,
-                startTime,
-                endTime,
-                specializations
-            };
-
-            technicians.push(tech);
+            if (editTechId !== null) {
+                // Edit mode: update existing technician
+                const idx = technicians.findIndex(t => t.id === editTechId);
+                if (idx !== -1) {
+                    technicians[idx] = {
+                        id: editTechId,
+                        location,
+                        address,
+                        count,
+                        teamName,
+                        days,
+                        startTime,
+                        endTime,
+                        specializations
+                    };
+                }
+                editTechId = null;
+                document.getElementById('addTechBtn').textContent = "Add Technician Team";
+            } else {
+                // Add mode: add new technician
+                const tech = {
+                    id: Date.now(),
+                    location,
+                    address,
+                    count,
+                    teamName,
+                    days,
+                    startTime,
+                    endTime,
+                    specializations
+                };
+                technicians.push(tech);
+            }
             updateTechnicianList();
             clearTechForm();
         }
@@ -627,6 +649,8 @@ window.addEventListener('DOMContentLoaded', function() {
             });
             document.getElementById('techStartTime').value = '08:00';
             document.getElementById('techEndTime').value = '17:00';
+            editTechId = null;
+            document.getElementById('addTechBtn').textContent = "Add Technician Team";
         }
 
         function updateTechnicianList() {
@@ -639,7 +663,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="card">
                     <div class="card-header">
                         <strong>${tech.teamName}</strong>
-                        <button class="btn btn-danger" onclick="removeTechnician(${tech.id})">Remove</button>
+                        <div>
+                            <button class="btn btn-secondary" onclick="editTechnician(${tech.id})">Edit</button>
+                            <button class="btn btn-danger" onclick="removeTechnician(${tech.id})">Remove</button>
+                        </div>
                     </div>
                     <div>
                         <p><strong>Location:</strong> ${tech.location}</p>
@@ -651,6 +678,27 @@ window.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
             `).join('');
+        }
+
+        function editTechnician(id) {
+            const tech = technicians.find(t => t.id === id);
+            if (!tech) return;
+            document.getElementById('techLocation').value = tech.location;
+            document.getElementById('techAddress').value = tech.address;
+            document.getElementById('techCount').value = tech.count;
+            document.getElementById('techTeamName').value = tech.teamName;
+            document.getElementById('techSpecializations').value = tech.specializations.join(', ');
+            // Set days
+            const techDays = document.getElementById('techDays');
+            for (let i = 0; i < techDays.options.length; i++) {
+                techDays.options[i].selected = tech.days.includes(techDays.options[i].value);
+            }
+            document.getElementById('techStartTime').value = tech.startTime;
+            document.getElementById('techEndTime').value = tech.endTime;
+            editTechId = id;
+            document.getElementById('addTechBtn').textContent = "Save Technician Team";
+            // Focus the first field for user convenience
+            document.getElementById('techLocation').focus();
         }
 
         function removeTechnician(id) {
