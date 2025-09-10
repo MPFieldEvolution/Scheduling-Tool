@@ -294,53 +294,25 @@
     <script src="https://unpkg.com/@googlemaps/places-autocomplete-element@1.0.0/dist/index.min.js"></script>
     <script>
 window.addEventListener('DOMContentLoaded', function() {
-    // Helper for address autocomplete
-    function setupAddressAutocomplete(inputId, dropdownId) {
-        const input = document.getElementById(inputId);
-        const dropdown = document.getElementById(dropdownId);
-        if (!input || !dropdown) return;
-
-        // Remove any previous autocomplete element
-        let old = document.getElementById(inputId + '-autocomplete');
-        if (old) old.remove();
-
-        // Create the autocomplete element
-        const autocomplete = document.createElement('gmpx-place-autocomplete');
-        autocomplete.id = inputId + '-autocomplete';
-        autocomplete.setAttribute('style', 'width:100%; z-index:1000;');
-        autocomplete.setAttribute('inputmode', 'text');
-        autocomplete.setAttribute('placeholder', input.placeholder);
-
-        // Insert into the dropdown container
-        dropdown.appendChild(autocomplete);
-
-        // Sync input value to autocomplete
-        input.addEventListener('input', () => {
-            autocomplete.value = input.value;
-        });
-
-        // When a place is selected, update the input
-        autocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
+    // Listen for place selection and set hidden input value for technician address
+    const techAutocomplete = document.getElementById('techAddressAutocomplete');
+    const techInput = document.getElementById('techAddress');
+    if (techAutocomplete && techInput) {
+        techAutocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
             const place = event.detail;
-            input.value = place.formattedAddress || '';
-            autocomplete.value = place.formattedAddress || '';
+            techInput.value = place.formattedAddress || '';
         });
     }
 
-    // Setup for Locations tab
-    setupAddressAutocomplete('locationAddress', 'addressAutocompleteDropdown');
-    // Setup for Technicians tab
-    setupAddressAutocomplete('techAddress', 'techAddressAutocompleteDropdown');
-
-    // Re-setup autocomplete when switching tabs
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            setTimeout(() => {
-                setupAddressAutocomplete('locationAddress', 'addressAutocompleteDropdown');
-                setupAddressAutocomplete('techAddress', 'techAddressAutocompleteDropdown');
-            }, 100);
+    // Listen for place selection and set hidden input value for location address
+    const locAutocomplete = document.getElementById('locationAddressAutocomplete');
+    const locInput = document.getElementById('locationAddress');
+    if (locAutocomplete && locInput) {
+        locAutocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
+            const place = event.detail;
+            locInput.value = place.formattedAddress || '';
         });
-    });
+    }
 });
 </script>
 </head>
@@ -368,8 +340,8 @@ window.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="form-group">
                         <label>Technician Address</label>
-                        <input type="text" id="techAddress" placeholder="e.g., 100 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
-                        <div id="techAddressAutocompleteDropdown" style="position:relative;"></div>
+                        <gmpx-place-autocomplete id="techAddressAutocomplete" style="width:100%;" placeholder="e.g., 100 Main St, City, State ZIP"></gmpx-place-autocomplete>
+                        <input type="hidden" id="techAddress" />
                     </div>
                     <div class="form-group">
                         <label>Number of Technicians</label>
@@ -431,9 +403,8 @@ window.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="form-group">
                         <label>Full Address</label>
-                        <!-- Use a visible text input for address, enhanced with Place Autocomplete Element -->
-                        <input id="locationAddress" type="text" placeholder="123 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
-                        <div id="addressAutocompleteDropdown" style="position:relative;"></div>
+                        <gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
+                        <input type="hidden" id="locationAddress" />
                     </div>
                     <div class="form-group">
                         <label>Scope of Work</label>
