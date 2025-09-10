@@ -292,6 +292,55 @@
     <!-- Remove the old Google Maps JS API script, and use the new Place Autocomplete Element loader -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&loading=async&libraries=places"></script>
     <script src="https://unpkg.com/@googlemaps/places-autocomplete-element@1.0.0/dist/index.min.js"></script>
+    <script>
+window.addEventListener('DOMContentLoaded', function() {
+    // Helper for address autocomplete
+    function setupAddressAutocomplete(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        // Remove any previous autocomplete element
+        let old = document.getElementById(inputId + '-autocomplete');
+        if (old) old.remove();
+
+        // Create the autocomplete element
+        const autocomplete = document.createElement('gmpx-place-autocomplete');
+        autocomplete.id = inputId + '-autocomplete';
+        autocomplete.setAttribute('style', 'width:100%; z-index:1000;');
+        autocomplete.setAttribute('inputmode', 'text');
+        autocomplete.setAttribute('placeholder', input.placeholder);
+
+        // Insert after the input
+        input.parentNode.appendChild(autocomplete);
+
+        // Sync input value to autocomplete
+        input.addEventListener('input', () => {
+            autocomplete.value = input.value;
+        });
+
+        // When a place is selected, update the input
+        autocomplete.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
+            const place = event.detail;
+            input.value = place.formattedAddress || '';
+            autocomplete.value = place.formattedAddress || '';
+        });
+    }
+
+    // Setup for Locations tab
+    setupAddressAutocomplete('locationAddress');
+    // Setup for Technicians tab
+    setupAddressAutocomplete('techAddress');
+
+    // Optional: re-setup autocomplete when switching tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            setTimeout(() => {
+                setupAddressAutocomplete('locationAddress');
+                setupAddressAutocomplete('techAddress');
+            }, 100);
+        });
+    });
+});
+</script>
 </head>
 <body>
     <div class="container">
@@ -317,7 +366,8 @@
                     </div>
                     <div class="form-group">
                         <label>Technician Address</label>
-                        <input type="text" id="techAddress" placeholder="e.g., 100 Main St, City, State ZIP">
+                        <input type="text" id="techAddress" placeholder="e.g., 100 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
+                        <div id="techAddressAutocompleteDropdown" style="position:relative;"></div>
                     </div>
                     <div class="form-group">
                         <label>Number of Technicians</label>
