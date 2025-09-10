@@ -289,23 +289,31 @@
             margin-top: 10px;
         }
     </style>
-    <!-- Remove the old Google Maps JS API script, and use the new Place Autocomplete Element loader -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&loading=async&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
     <script>
 window.addEventListener('DOMContentLoaded', function() {
-    // Helper to attach Google Maps Place Autocomplete to an input
+    // Wait for Google Maps API to be loaded before attaching autocomplete
+    function waitForGoogleMaps(callback) {
+        if (window.google && window.google.maps && window.google.maps.places && window.google.maps.places.Autocomplete) {
+            callback();
+        } else {
+            setTimeout(function() {
+                waitForGoogleMaps(callback);
+            }, 100);
+        }
+    }
+
     function attachAutocomplete(inputId) {
         const input = document.getElementById(inputId);
         if (!input) return;
         // Remove any previous autocomplete instance
-        if (input._autocomplete) {
+        if (input._autocomplete && input._autocomplete.unbindAll) {
             input._autocomplete.unbindAll();
-            input._autocomplete = null;
         }
+        input._autocomplete = null;
         // Attach Google Maps Places Autocomplete
         const autocomplete = new google.maps.places.Autocomplete(input, { types: ['geocode'] });
         input._autocomplete = autocomplete;
-        // Optionally: store the formatted address on selection
         autocomplete.addListener('place_changed', function() {
             const place = autocomplete.getPlace();
             if (place && place.formatted_address) {
@@ -314,17 +322,17 @@ window.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Attach autocomplete to both address fields
-    attachAutocomplete('techAddress');
-    attachAutocomplete('locationAddress');
-
-    // Re-attach autocomplete when switching tabs (in case DOM changes)
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            setTimeout(() => {
-                attachAutocomplete('techAddress');
-                attachAutocomplete('locationAddress');
-            }, 100);
+    waitForGoogleMaps(function() {
+        attachAutocomplete('techAddress');
+        attachAutocomplete('locationAddress');
+        // Re-attach autocomplete when switching tabs (in case DOM changes)
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                setTimeout(() => {
+                    attachAutocomplete('techAddress');
+                    attachAutocomplete('locationAddress');
+                }, 100);
+            });
         });
     });
 });
