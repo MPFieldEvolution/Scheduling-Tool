@@ -142,8 +142,10 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Specializations</label>
-                        <input type="text" id="techSpecializations" placeholder="e.g., VG, DC, PA (comma separated)">
+                        <label>Providers (Certifications)</label>
+                        <div id="techProviderCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <!-- Provider checkboxes will be inserted here by JS -->
+                        </div>
                     </div>
                 </div>
                 <button class="btn" id="addTechBtn" onclick="addTechnician()">Add Technician Team</button>
@@ -198,6 +200,12 @@
                     <div class="form-group">
                         <label>Special Requirements</label>
                         <textarea id="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Providers (Project Type)</label>
+                        <div id="locationProviderCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <!-- Provider checkboxes will be inserted here by JS -->
+                        </div>
                     </div>
                 </div>
                 <button class="btn" onclick="addLocation()">Add Location</button>
@@ -298,6 +306,7 @@
         let currentLocationScopes = [];
         let editTechId = null;
         let editLocationId = null;
+        const providers = ["Motive", "Lytx", "Samsara", "Verizon Connect", "Vestige", "LinxUp"];
 
         // Add a global to store last unassigned locations
         let lastUnassignedLocations = [];
@@ -400,6 +409,9 @@
         });
 
         window.addEventListener('DOMContentLoaded', function() {
+            // Populate providers
+            populateProviderCheckboxes();
+            
             // Technician Address Autocomplete
             if (window.google && window.google.maps && window.google.maps.places) {
                 const techInput = document.getElementById('techAddress');
@@ -424,6 +436,27 @@
                 });
             }
         });
+
+        function populateProviderCheckboxes() {
+            const techContainer = document.getElementById('techProviderCheckboxes');
+            const locationContainer = document.getElementById('locationProviderCheckboxes');
+            if (techContainer) {
+                techContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('');
+            }
+            if (locationContainer) {
+                locationContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('');
+            }
+        }
+        
+        function getSelectedProviders(containerId) {
+            return Array.from(document.querySelectorAll(`#${containerId} input[type="checkbox"]:checked`)).map(cb => cb.value);
+        }
+        
+        function setSelectedProviders(containerId, selectedProviders) {
+            document.querySelectorAll(`#${containerId} input[type="checkbox"]`).forEach(cb => {
+                cb.checked = selectedProviders.includes(cb.value);
+            });
+        }
 
         // --- Scope List always updates ---
         function updateScopeList() {
@@ -490,6 +523,7 @@
             const startTime = document.getElementById('techStartTime').value;
             const endTime = document.getElementById('techEndTime').value;
             const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim()).filter(Boolean);
+            const providers = getSelectedProviders('techProviderCheckboxes');
 
             let errors = [];
             if (!location) errors.push("Base Location is required.");
@@ -499,6 +533,7 @@
             if (days.length === 0) errors.push("At least one availability day must be selected.");
             if (!startTime || !endTime) errors.push("Working hours are required.");
             if (technicians.some(t => t.teamName === teamName && t.id !== editTechId)) errors.push("Team Name/ID must be unique.");
+            if (providers.length === 0) errors.push("At least one provider must be selected.");
 
             if (errors.length > 0) {
                 alert("Please fix the following:\n" + errors.join("\n"));
@@ -508,12 +543,12 @@
             if (editTechId !== null) {
                 const idx = technicians.findIndex(t => t.id === editTechId);
                 if (idx !== -1) {
-                    technicians[idx] = { id: editTechId, location, address, count, teamName, days, startTime, endTime, specializations };
+                    technicians[idx] = { id: editTechId, location, address, count, teamName, days, startTime, endTime, specializations, providers };
                 }
                 editTechId = null;
                 document.getElementById('addTechBtn').textContent = "Add Technician Team";
             } else {
-                const tech = { id: Date.now(), location, address, count, teamName, days, startTime, endTime, specializations };
+                const tech = { id: Date.now(), location, address, count, teamName, days, startTime, endTime, specializations, providers };
                 technicians.push(tech);
             }
             updateTechnicianList();
@@ -527,6 +562,7 @@
             document.getElementById('techTeamName').value = '';
             document.getElementById('techSpecializations').value = '';
             setSelectedTechDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+            setSelectedProviders('techProviderCheckboxes', []);
             document.getElementById('techStartTime').value = '08:00';
             document.getElementById('techEndTime').value = '17:00';
             editTechId = null;
@@ -553,7 +589,7 @@
                         <p><strong>Team Size:</strong> ${tech.count} technicians</p>
                         <p><strong>Available:</strong> ${tech.days.join(', ')}</p>
                         <p><strong>Hours:</strong> ${tech.startTime} - ${tech.endTime}</p>
-                        <p><strong>Providers/Certifications:</strong> ${tech.specializations.join(', ') || 'All'}</p>
+                        <p><strong>Certifications:</strong> ${tech.providers.join(', ') || 'None'}</p>
                     </div>
                 </div>
             `).join('');
@@ -567,6 +603,7 @@
             document.getElementById('techTeamName').value = tech.teamName;
             document.getElementById('techSpecializations').value = tech.specializations.join(', ');
             setSelectedTechDays(tech.days);
+            setSelectedProviders('techProviderCheckboxes', tech.providers);
             document.getElementById('techStartTime').value = tech.startTime;
             document.getElementById('techEndTime').value = tech.endTime;
             editTechId = id;
@@ -589,12 +626,14 @@
             const availability = document.getElementById('locationAvailability').value.trim();
             const contact = document.getElementById('locationContact').value.trim();
             const notes = document.getElementById('locationNotes').value.trim();
+            const providers = getSelectedProviders('locationProviderCheckboxes');
 
             let errors = [];
             if (!siteId) errors.push("Site ID is required.");
             if (!address) errors.push("Full Address is required.");
             if (!scope) errors.push("Scope of Work is required.");
             if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) errors.push("Site ID must be unique.");
+            if (providers.length === 0) errors.push("At least one provider must be selected.");
 
             const scopeItems = parseScope(scope);
             const missingScopes = scopeItems.filter(item =>
@@ -616,12 +655,12 @@
             if (editLocationId !== null) {
                 const idx = locations.findIndex(l => l.id === editLocationId);
                 if (idx !== -1) {
-                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes };
+                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes, providers };
                 }
                 editLocationId = null;
                 document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             } else {
-                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes };
+                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes, providers };
                 locations.push(location);
             }
             updateLocationList();
@@ -648,6 +687,7 @@
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
                         <p><strong>Availability:</strong> ${loc.availability}</p>
+                        <p><strong>Providers:</strong> ${loc.providers.join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
                     </div>
@@ -665,6 +705,7 @@
             document.getElementById('locationAvailability').value = loc.availability;
             document.getElementById('locationContact').value = loc.contact;
             document.getElementById('locationNotes').value = loc.notes;
+            setSelectedProviders('locationProviderCheckboxes', loc.providers);
             editLocationId = id;
             document.querySelector('button[onclick="addLocation()"]').textContent = "Save Location";
             document.getElementById('locationId').focus();
@@ -684,6 +725,7 @@
             document.getElementById('locationContact').value = '';
             document.getElementById('locationNotes').value = '';
             document.getElementById('locationPriority').value = 'Medium';
+            setSelectedProviders('locationProviderCheckboxes', []);
             editLocationId = null;
             document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             currentLocationScopes = [];
@@ -899,7 +941,10 @@
 
                 if (isLocationAvailable && (!windowStart || currentDate >= windowStart) && (!windowEnd || currentDate <= windowEnd)) {
                     
-                    const eligibleTeams = technicians.filter(tech => tech.days.includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0);
+                    const eligibleTeams = technicians.filter(tech => {
+                        const hasProviderMatch = location.providers.every(provider => tech.providers.includes(provider));
+                        return tech.days.includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0 && hasProviderMatch;
+                    });
 
                     if (eligibleTeams.length > 0) {
                         const scopeItems = parseScope(location.scope);
@@ -940,7 +985,7 @@
                             }
                         }
 
-                        if (assignedTechCount >= requiredTechs) {
+                        if (assignedTechCount >= requiredTechs && primaryTeamDriveInfo) {
                             const teamStart = eligibleTeams[0].startTime.split(':');
                             const teamEnd = eligibleTeams[0].endTime.split(':');
                             const dayStartTime = new Date(currentDate);
@@ -1097,11 +1142,11 @@
                         const techsToAssign = Math.min(availableTechsInTeam, requiredTechs - assignedTechCount);
 
                         if(techsToAssign > 0) {
-                            if (team.specializations.length > 0 && requiredSpecializations.length > 0) {
-                                if (!requiredSpecializations.every(req => team.specializations.some(sp => sp.toLowerCase() === req.toLowerCase()))) {
-                                    paramsBroken.push("Specialization");
-                                }
+                            const hasProviderMatch = location.providers.every(provider => team.providers.includes(provider));
+                            if (!hasProviderMatch) {
+                                paramsBroken.push("Provider Certification");
                             }
+
                             if (!primaryTeamDriveInfo) {
                                 primaryTeamDriveInfo = await getDriveInfoCached(team.address, location.address);
                             }
@@ -1269,6 +1314,7 @@
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
+                        html += `<p>🔌 Providers: ${assignment.location.providers.join(', ')}</p>`;
                         
                         if (assignment.assignedTeams.length > 0) {
                             html += `<p>🚗 Est. Drive from ${assignment.assignedTeams[0].teamName}: ${assignment.assignedTeams[0].driveInfo.miles} mi, ${assignment.assignedTeams[0].driveInfo.minutes} min</p>`;
@@ -1396,6 +1442,7 @@
                 "Site ID",
                 "Address",
                 "Scope of Work",
+                "Providers",
                 "Duration (min)",
                 "Drive Time (min)",
                 "Drive Distance (mi)",
@@ -1445,6 +1492,7 @@
                         assignment.location.siteId,
                         assignment.location.address,
                         assignment.location.scope,
+                        assignment.location.providers.join(', '),
                         assignment.duration,
                         teamData.driveInfo.minutes,
                         teamData.driveInfo.miles,
@@ -1470,7 +1518,7 @@
                          loc.siteId,
                          loc.address,
                          loc.scope,
-                         "",
+                         loc.providers.join(', '),
                          "",
                          "",
                          ""
