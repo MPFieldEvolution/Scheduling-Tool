@@ -899,8 +899,7 @@
             const schedule = {};
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             let unassignedLocations = [];
-            let assignments = [];
-
+            
             const installWindowStart = document.getElementById('installWindowStart').value;
             const installWindowEnd = document.getElementById('installWindowEnd').value;
             const windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
@@ -917,15 +916,13 @@
 
             const techUsage = {};
             technicians.forEach(tech => {
-                techUsage[tech.id] = { ...tech };
-                techUsage[tech.id].available = tech.count;
+                techUsage[tech.id] = {};
             });
-            const scheduledJobs = {};
             
             let currentDate = new Date();
             currentDate.setHours(0,0,0,0);
             let locationQueue = [...sortedLocations];
-            let loopGuard = 0; // Prevent infinite loops
+            let loopGuard = 0;
 
             while (locationQueue.length > 0 && loopGuard < 1000) {
                 loopGuard++;
@@ -1031,6 +1028,7 @@
                                 scheduled = true;
                                 location.originalScope = null;
                             } else {
+                                location.originalScope = location.originalScope || location.scope;
                                 location.scope = `${jobDurationMinutes - workToday} min remaining`;
                                 locationQueue.unshift(location);
                             }
@@ -1086,11 +1084,8 @@
 
             const techUsage = {};
             technicians.forEach(tech => {
-                techUsage[tech.id] = { ...tech };
-                techUsage[tech.id].available = tech.count;
+                techUsage[tech.id] = {};
             });
-            let allAssignments = [];
-            let schedule = JSON.parse(JSON.stringify(lastSchedule));
 
             let unassignedCopy = [...lastUnassignedLocations];
             lastUnassignedLocations = [];
@@ -1145,6 +1140,9 @@
                             const hasProviderMatch = location.providers.every(provider => team.providers.includes(provider));
                             if (!hasProviderMatch) {
                                 paramsBroken.push("Provider Certification");
+                            }
+                            if (!team.days.includes(dayOfWeek)) {
+                                paramsBroken.push("Team Availability");
                             }
 
                             if (!primaryTeamDriveInfo) {
@@ -1222,8 +1220,8 @@
                     if (jobDurationMinutes <= 0) {
                         scheduled = true;
                         location.originalScope = null;
-                        lastUnassignedLocations.push(location);
                     } else {
+                        location.originalScope = location.originalScope || location.scope;
                         location.scope = `${jobDurationMinutes} min remaining`;
                         unassignedCopy.unshift(location);
                         currentDate.setDate(currentDate.getDate() + 1);
@@ -1317,7 +1315,11 @@
                         html += `<p>🔌 Providers: ${assignment.location.providers.join(', ')}</p>`;
                         
                         if (assignment.assignedTeams.length > 0) {
-                            html += `<p>🚗 Est. Drive from ${assignment.assignedTeams[0].teamName}: ${assignment.assignedTeams[0].driveInfo.miles} mi, ${assignment.assignedTeams[0].driveInfo.minutes} min</p>`;
+                            const primaryTeam = assignment.assignedTeams[0];
+                            const originalPrimaryTeam = technicians.find(t => t.id === primaryTeam.teamId);
+                            if (originalPrimaryTeam) {
+                                html += `<p>🚗 Est. Drive from ${originalPrimaryTeam.teamName}: ${primaryTeam.driveInfo.miles} mi, ${primaryTeam.driveInfo.minutes} min</p>`;
+                            }
                         }
                         
                         if (assignment.overrideParams && assignment.overrideParams.length > 0) {
