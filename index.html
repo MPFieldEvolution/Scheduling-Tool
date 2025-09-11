@@ -10,7 +10,7 @@
         .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
         h1 { color: #ff0000; margin-bottom: 30px; text-align: center; font-size: 2.5em; font-family: Arial, Helvetica, sans-serif; background: none; -webkit-background-clip: unset; background-clip: unset; -webkit-text-fill-color: unset;}
         .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0;}
-        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
+        .tab { padding: 12px 24px; background: none; border: none, cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
         .tab.active { color: #ff0000; border-bottom-color: #ff0000; font-weight: 600;}
         .tab:hover { color: #ff0000;}
         .section { display: none; animation: fadeIn 0.5s;}
@@ -47,7 +47,6 @@
         .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
         .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
     </style>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
     <script>
     // Google Places Autocomplete for address fields
@@ -302,10 +301,6 @@
                 <button class="btn" onclick="generateSchedule()">🚀 Generate Optimal Schedule</button>
             </div>
             <div class="metrics" id="metrics"></div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <button class="btn btn-secondary" id="exportCsvBtn" style="display:none;">Export Schedule as CSV</button>
-                <div id="map" style="width: 600px; height: 350px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>
-            </div>
             <div class="schedule-output" id="scheduleOutput">
                 <h3>Generated Schedule will appear here...</h3>
             </div>
@@ -983,112 +978,8 @@
         displayMetrics(schedule, unassignedLocations);
     }
 
-    // --- CSV Export ---
-    function scheduleToCSV(schedule) {
-        let rows = [["Technician Team","Day","Start Time","End Time","Site ID","Site Name","Address","Scope","Duration (min)","Drive Time (min)","Buffer (min)"]];
-        Object.entries(schedule).forEach(([day, dayObj]) => {
-            dayObj.teams.forEach(teamSchedule => {
-                teamSchedule.assignments.forEach(assignment => {
-                    rows.push([
-                        teamSchedule.team.teamName,
-                        day,
-                        assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        assignment.location.siteId,
-                        assignment.location.name,
-                        assignment.location.address,
-                        assignment.location.scope,
-                        assignment.duration,
-                        assignment.driveTime,
-                        assignment.bufferTime
-                    ]);
-                });
-            });
-        });
-        return rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-    }
-
-    function downloadCSV(csv, filename) {
-        const blob = new Blob([csv], {type: 'text/csv'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click();
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-    }
-
-    document.getElementById('exportCsvBtn').onclick = function() {
-        if (window._lastSchedule) {
-            const csv = scheduleToCSV(window._lastSchedule);
-            downloadCSV(csv, "schedule.csv");
-        }
-    };
-
-    // --- Google Maps Route Visualization ---
-    let map, routePolylines = [];
-    function initMap() {
-        if (!window.google || !google.maps) return;
-        map = new google.maps.Map(document.getElementById("map"), {
-            center: { lat: 39.8283, lng: -98.5795 }, // USA center
-            zoom: 4,
-            mapTypeId: 'roadmap'
-        });
-    }
-    window.initMap = initMap;
-    window.addEventListener('DOMContentLoaded', () => setTimeout(initMap, 1000));
-
-    function clearMapRoutes() {
-        if (routePolylines) routePolylines.forEach(p => p.setMap(null));
-        routePolylines = [];
-    }
-
-    function showRoutesOnMap(schedule) {
-        if (!map || !window.google || !google.maps) return;
-        clearMapRoutes();
-        const colors = ["#FF0000","#007BFF","#28A745","#FFC107","#6F42C1","#17A2B8","#E83E8C"];
-        let colorIdx = 0;
-        Object.values(schedule).forEach(dayObj => {
-            dayObj.teams.forEach(teamSchedule => {
-                const path = [];
-                let lastAddress = teamSchedule.team.address || teamSchedule.team.location;
-                teamSchedule.assignments.forEach(assignment => {
-                    path.push(assignment.location.address);
-                });
-                // Geocode addresses to LatLng
-                const geocoder = new google.maps.Geocoder();
-                let latlngs = [];
-                let promises = path.map(addr => new Promise(res => {
-                    geocoder.geocode({address: addr}, (results, status) => {
-                        if (status === "OK" && results[0]) {
-                            latlngs.push(results[0].geometry.location);
-                        }
-                        res();
-                    });
-                }));
-                Promise.all(promises).then(() => {
-                    if (latlngs.length > 1) {
-                        const polyline = new google.maps.Polyline({
-                            path: latlngs,
-                            strokeColor: colors[colorIdx % colors.length],
-                            strokeOpacity: 0.8,
-                            strokeWeight: 5,
-                            map: map
-                        });
-                        routePolylines.push(polyline);
-                        colorIdx++;
-                        map.setCenter(latlngs[0]);
-                        map.setZoom(10);
-                    }
-                });
-            });
-        });
-    }
-
-    // --- Update displaySchedule to enable CSV and map ---
+    // --- Update displaySchedule to show date, time, drive, and buffer clearly ---
     function displaySchedule(schedule, unassigned) {
-        window._lastSchedule = schedule;
-        document.getElementById('exportCsvBtn').style.display = 'inline-block';
-        showRoutesOnMap(schedule);
         const output = document.getElementById('scheduleOutput');
         let html = '<h3>📅 Optimized Installation Schedule</h3>';
         Object.entries(schedule).forEach(([day, dayObj]) => {
@@ -1130,7 +1021,8 @@
     // --- Metrics and Reporting ---
     function displayMetrics(schedule, unassigned) {
         const metrics = document.getElementById('metrics');
-        let totalJobs = 0, totalTechHours = 0, totalDrive = 0, totalAssignments = 0;
+        let totalJobs = 0;
+        let totalTechHours = 0;
         let totalLocations = locations.length;
         Object.values(schedule).forEach(dayObj => {
             if (!dayObj.teams) return;
@@ -1138,46 +1030,44 @@
                 totalJobs += teamSchedule.assignments.length;
                 teamSchedule.assignments.forEach(assignment => {
                     totalTechHours += (assignment.duration / 60) * teamSchedule.team.count;
-                    totalDrive += assignment.driveTime;
-                    totalAssignments++;
                 });
             });
         });
         const completionRate = totalLocations > 0 ?
             ((totalLocations - unassigned.length) / totalLocations * 100).toFixed(1) : 0;
-        const avgDrive = totalAssignments > 0 ? (totalDrive / totalAssignments).toFixed(1) : 0;
         metrics.innerHTML = `
             <div class="metric-card">
                 <div class="metric-value">${totalLocations - unassigned.length}/${totalLocations}</div>
-                <div class="metric-label">Assigned Jobs</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${unassigned.length}</div>
-                <div class="metric-label">Unassigned Jobs</div>
+                <div class="metric-label">Locations Scheduled</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">${completionRate}%</div>
-                <div class="metric-label">Assignment Rate</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${avgDrive}</div>
-                <div class="metric-label">Avg Drive Time (min)</div>
+                <div class="metric-label">Coverage Rate</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">${totalTechHours.toFixed(1)}</div>
-                <div class="metric-label">Total Work Time (hrs)</div>
+                <div class="metric-label">Total Tech Hours</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${technicians.reduce((sum, t) => sum + t.count, 0)}</div>
+                <div class="metric-label">Total Technicians</div>
             </div>
         `;
     }
 
-    // --- TODO: Further improvements ---
-    // - Implement full job time window support (parse location.availability for time ranges)
-    // - Balance workload between techs (track assigned minutes, prefer least loaded)
-    // - Assign highest priority jobs first (already sorted)
-    // - Show ETAs, durations, drive times, buffer times in schedule display (already shown)
-    // - If a job cannot be assigned, show it in “Unassigned Jobs.” (already shown)
-    // - UI: Use Bootstrap tables/cards for schedule display (can be further polished)
-    // - Everything remains in one HTML file
+    // --- Initialization ---
+    window.addEventListener('DOMContentLoaded', function() {
+        loadAllData();
+        updateTechnicianList();
+        updateLocationList();
+        updateScopeList();
+        // Restore tab
+        const savedTab = localStorage.getItem('currentTab') || 'technicians';
+        setCurrentTab(savedTab);
+        // Ensure scope and schedule sections are populated
+        updateScopeList();
+        updateScheduleTabContent();
+    });
     </script>
 </body>
 </html>
