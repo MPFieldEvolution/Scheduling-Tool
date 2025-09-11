@@ -1,347 +1,428 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FE Installation Project Scheduler</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; background: #ff0000; min-height: 100vh; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
-        h1 { color: #ff0000; margin-bottom: 30px; text-align: center; font-size: 2.5em; font-family: Arial, Helvetica, sans-serif; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0;}
-        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
-        .tab.active { color: #ff0000; border-bottom-color: #ff0000; font-weight: 600;}
-        .tab:hover { color: #ff0000;}
-        .section { display: none; animation: fadeIn 0.5s;}
-        .section.active { display: block;}
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);}}
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;}
-        .form-group { display: flex; flex-direction: column;}
-        label { font-weight: 600; color: #555; margin-bottom: 8px; font-size: 14px;}
-        input, select, textarea { padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; transition: all 0.3s;}
-        input:focus, select:focus, textarea:focus { outline: none; border-color: #ff0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.1);}
-        textarea { resize: vertical; min-height: 100px;}
-        .btn { padding: 12px 24px; background: linear-gradient(135deg, #ff0000, #b30000); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s; box-shadow: 0 4px 15px rgba(255,0,0,0.3);}
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,0,0,0.4);}
-        .btn-secondary { background: #6c757d; box-shadow: 0 4px 15px rgba(108,117,125,0.3);}
-        .btn-danger { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.3);}
-        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s;}
-        .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.15);}
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;}
-        .card-title { font-size: 18px; font-weight: 600; color: #333;}
-        .list-container { max-height: 500px; overflow-y: auto;}
-        .schedule-output { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-top: 20px; min-height: 200px;}
-        .schedule-day { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #ff0000;}
-        .schedule-day h4 { color: #ff0000; margin-bottom: 10px;}
-        .assignment { background: #fff0f0; padding: 10px; border-radius: 6px; margin-bottom: 8px;}
-        .tech-tag { display: inline-block; background: #ff0000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;}
-        .location-tag { display: inline-block; background: #b30000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;}
-        .scope-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;}
-        .scope-type-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #e0e0e0;}
-        .scope-type-card h5 { color: #ff0000; margin-bottom: 10px;}
-        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;}
-        .metric-card { background: linear-gradient(135deg, #ff0000, #b30000); color: white; padding: 20px; border-radius: 12px; text-align: center;}
-        .metric-value { font-size: 32px; font-weight: bold; margin-bottom: 5px;}
-        .metric-label { font-size: 14px; opacity: 0.9;}
-        .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
-        .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>FE Installation Project Scheduler</h1>
-        <div class="tabs">
-            <button class="tab active" type="button" data-tab="technicians">Technicians</button>
-            <button class="tab" type="button" data-tab="locations">Locations</button>
-            <button class="tab" type="button" data-tab="scopes">Scope Templates</button>
-            <button class="tab" type="button" data-tab="schedule">Generate Schedule</button>
-        </div>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>FE Installation Project Scheduler</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, Helvetica, sans-serif; background: #ff0000; min-height: 100vh; padding: 20px; }
+            .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
+            h1 { color: #ff0000; margin-bottom: 30px; text-align: center; font-size: 2.5em; font-family: Arial, Helvetica, sans-serif; background: none; -webkit-background-clip: unset; background-clip: unset; -webkit-text-fill-color: unset;}
+            .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0;}
+            .tab { padding: 12px 24px; background: none; border: none, cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
+            .tab.active { color: #ff0000; border-bottom-color: #ff0000; font-weight: 600;}
+            .tab:hover { color: #ff0000;}
+            .section { display: none; animation: fadeIn 0.5s;}
+            .section.active { display: block;}
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);}}
+            .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;}
+            .form-group { display: flex; flex-direction: column;}
+            label { font-weight: 600; color: #555; margin-bottom: 8px; font-size: 14px;}
+            input, select, textarea { padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; transition: all 0.3s;}
+            input:focus, select:focus, textarea:focus { outline: none; border-color: #ff0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.1);}
+            textarea { resize: vertical; min-height: 100px;}
+            .btn { padding: 12px 24px; background: linear-gradient(135deg, #ff0000, #b30000); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s; box-shadow: 0 4px 15px rgba(255,0,0,0.3);}
+            .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,0,0,0.4);}
+            .btn-secondary { background: #6c757d; box-shadow: 0 4px 15px rgba(108,117,125,0.3);}
+            .btn-danger { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.3);}
+            .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s;}
+            .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.15);}
+            .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;}
+            .card-title { font-size: 18px; font-weight: 600; color: #333;}
+            .list-container { max-height: 500px; overflow-y: auto;}
+            .schedule-output { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-top: 20px; min-height: 200px;}
+            .schedule-day { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #ff0000;}
+            .schedule-day h4 { color: #ff0000; margin-bottom: 10px;}
+            .assignment { background: #fff0f0; padding: 10px; border-radius: 6px; margin-bottom: 8px;}
+            .tech-tag { display: inline-block; background: #ff0000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;}
+            .location-tag { display: inline-block; background: #b30000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;}
+            .scope-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;}
+            .scope-type-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #e0e0e0;}
+            .scope-type-card h5 { color: #ff0000; margin-bottom: 10px;}
+            .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;}
+            .metric-card { background: linear-gradient(135deg, #ff0000, #b30000); color: white; padding: 20px; border-radius: 12px; text-align: center;}
+            .metric-value { font-size: 32px; font-weight: bold; margin-bottom: 5px;}
+            .metric-label { font-size: 14px; opacity: 0.9;}
+            .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
+            .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
+        </style>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
+        <script>
+    window.addEventListener('DOMContentLoaded', function() {
+        // Technician Address Autocomplete
+        if (window.google && window.google.maps && window.google.maps.places) {
+            const techInput = document.getElementById('techAddress');
+            const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
+            techAutocomplete.setFields(['formatted_address']);
+            techAutocomplete.addListener('place_changed', function() {
+                const place = techAutocomplete.getPlace();
+                if (place && place.formatted_address) {
+                    techInput.value = place.formatted_address;
+                }
+            });
 
-        <!-- Technicians Section -->
-        <div id="technicians" class="section active">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Add Technician Team</h3>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Base Location</label>
-                        <input type="text" id="techLocation" placeholder="e.g., Downtown Hub">
+            // Location Address Autocomplete
+            const locInput = document.getElementById('locationAddress');
+            const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
+            locAutocomplete.setFields(['formatted_address']);
+            locAutocomplete.addListener('place_changed', function() {
+                const place = locAutocomplete.getPlace();
+                if (place && place.formatted_address) {
+                    locInput.value = place.formatted_address;
+                }
+            });
+        }
+    });
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <h1>FE Installation Project Scheduler</h1>
+            <div class="tabs">
+                <button class="tab active" type="button" data-tab="technicians">Technicians</button>
+                <button class="tab" type="button" data-tab="locations">Locations</button>
+                <button class="tab" type="button" data-tab="scopes">Scope Templates</button>
+                <button class="tab" type="button" data-tab="schedule">Generate Schedule</button>
+            </div>
+
+            <!-- Technicians Section -->
+            <div id="technicians" class="section active">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Add Technician Team</h3>
                     </div>
-                    <div class="form-group">
-                        <label for="techAddress">Technician Address</label>
-                        <input type="text" id="techAddress" name="techAddress" placeholder="e.g., 100 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
-                    </div>
-                    <div class="form-group">
-                        <label>Number of Technicians</label>
-                        <input type="number" id="techCount" min="1" value="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Team Name/ID</label>
-                        <input type="text" id="techTeamName" placeholder="e.g., Team Alpha">
-                    </div>
-                    <div class="form-group">
-                        <label>Availability (Days)</label>
-                        <div id="techDaysCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
-                            <label><input type="checkbox" value="Monday" checked> Monday</label>
-                            <label><input type="checkbox" value="Tuesday" checked> Tuesday</label>
-                            <label><input type="checkbox" value="Wednesday" checked> Wednesday</label>
-                            <label><input type="checkbox" value="Thursday" checked> Thursday</label>
-                            <label><input type="checkbox" value="Friday" checked> Friday</label>
-                            <label><input type="checkbox" value="Saturday"> Saturday</label>
-                            <label><input type="checkbox" value="Sunday"> Sunday</label>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Base Location</label>
+                            <input type="text" id="techLocation" placeholder="e.g., Downtown Hub">
+                        </div>
+                        <div class="form-group">
+                            <label for="techAddress">Technician Address</label>
+                            <input type="text" id="techAddress" name="techAddress" placeholder="e.g., 100 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Technicians</label>
+                            <input type="number" id="techCount" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Team Name/ID</label>
+                            <input type="text" id="techTeamName" placeholder="e.g., Team Alpha">
+                        </div>
+                        <div class="form-group">
+                            <label>Availability (Days)</label>
+                            <div id="techDaysCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                <label><input type="checkbox" value="Monday" checked> Monday</label>
+                                <label><input type="checkbox" value="Tuesday" checked> Tuesday</label>
+                                <label><input type="checkbox" value="Wednesday" checked> Wednesday</label>
+                                <label><input type="checkbox" value="Thursday" checked> Thursday</label>
+                                <label><input type="checkbox" value="Friday" checked> Friday</label>
+                                <label><input type="checkbox" value="Saturday"> Saturday</label>
+                                <label><input type="checkbox" value="Sunday"> Sunday</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Working Hours</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="time" id="techStartTime" value="08:00">
+                                <input type="time" id="techEndTime" value="17:00">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Specializations</label>
+                            <input type="text" id="techSpecializations" placeholder="e.g., VG, DC, PA (comma separated)">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Working Hours</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="time" id="techStartTime" value="08:00">
-                            <input type="time" id="techEndTime" value="17:00">
+                    <button class="btn" id="addTechBtn" onclick="addTechnician()">Add Technician Team</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Current Technician Teams</h3>
+                    </div>
+                    <div id="technicianList" class="list-container"></div>
+                </div>
+            </div>
+
+            <!-- Locations Section -->
+            <div id="locations" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Add Installation Location</h3>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Site ID</label>
+                            <input type="text" id="locationId" placeholder="e.g., SITE-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Site Name</label>
+                            <input type="text" id="locationName" placeholder="e.g., Main Street Branch">
+                        </div>
+                        <div class="form-group">
+                            <label for="locationAddress">Full Address</label>
+                            <input type="text" id="locationAddress" name="locationAddress" placeholder="123 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
+                        </div>
+                        <div class="form-group">
+                            <label>Scope of Work</label>
+                            <input type="text" id="locationScope" placeholder="e.g., 15 VG + DCs, 5 PAs">
+                        </div>
+                        <div class="form-group">
+                            <label>Priority Level</label>
+                            <select id="locationPriority">
+                                <option value="High">High</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Site Availability</label>
+                            <input type="text" id="locationAvailability" placeholder="e.g., Mon-Fri 9AM-5PM">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Person</label>
+                            <input type="text" id="locationContact" placeholder="Name and phone">
+                        </div>
+                        <div class="form-group">
+                            <label>Special Requirements</label>
+                            <textarea id="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Specializations</label>
-                        <input type="text" id="techSpecializations" placeholder="e.g., VG, DC, PA (comma separated)">
+                    <button class="btn" onclick="addLocation()">Add Location</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Current Locations</h3>
                     </div>
+                    <div id="locationList" class="list-container"></div>
                 </div>
-                <button class="btn" id="addTechBtn">Add Technician Team</button>
             </div>
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Current Technician Teams</h3>
+
+            <!-- Scopes Section -->
+            <div id="scopes" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Define Scope Templates</h3>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Scope Type</label>
+                            <input type="text" id="scopeType" placeholder="e.g., VG, DC, PA">
+                        </div>
+                        <div class="form-group">
+                            <label>Duration per Unit (minutes)</label>
+                            <input type="number" id="scopeDuration" min="1" placeholder="e.g., 30">
+                        </div>
+                        <div class="form-group">
+                            <label>Required Tech Count</label>
+                            <input type="number" id="scopeTechCount" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Complexity Factor</label>
+                            <select id="scopeComplexity">
+                                <option value="1">Simple (1x)</option>
+                                <option value="1.5">Moderate (1.5x)</option>
+                                <option value="2">Complex (2x)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="addScope()">Add Scope Template</button>
                 </div>
-                <div id="technicianList" class="list-container"></div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Current Scope Templates</h3>
+                    </div>
+                    <div id="scopeList" class="scope-types"></div>
+                </div>
+            </div>
+
+            <!-- Schedule Section -->
+            <div id="schedule" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Schedule Parameters</h3>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group" style="display:none">
+                            <label>Average Drive Time (minutes)</label>
+                            <input type="number" id="driveTime" value="30" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Optimization Strategy</label>
+                            <select id="optimizationStrategy">
+                                <option value="efficiency">Maximum Efficiency</option>
+                                <option value="priority">Priority First</option>
+                                <option value="balanced">Balanced Approach</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Install Window Start</label>
+                            <input type="date" id="installWindowStart" value="">
+                        </div>
+                        <div class="form-group">
+                            <label>Install Window End</label>
+                            <input type="date" id="installWindowEnd" value="">
+                        </div>
+                    </div>
+                    <div style="color:#888; font-size:13px; margin-bottom:10px;">
+                        <em>Drive time is now automatically estimated based on technician and location addresses.<br>
+                        Buffer time is now always automated (minimum 15 minutes before each job).</em>
+                    </div>
+                    <button class="btn" onclick="generateSchedule(false)">🚀 Generate Optimal Schedule</button>
+                    <button class="btn btn-secondary" onclick="generateSchedule(true)" style="margin-left:10px;">Override Parameters</button>
+                </div>
+                <div class="metrics" id="metrics"></div>
+                <div class="schedule-output" id="scheduleOutput">
+                    <h3>Generated Schedule will appear here...</h3>
+                </div>
             </div>
         </div>
-
-        <!-- Locations Section -->
-        <div id="locations" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Add Installation Location</h3>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Site ID</label>
-                        <input type="text" id="locationId" placeholder="e.g., SITE-001">
-                    </div>
-                    <div class="form-group">
-                        <label>Site Name</label>
-                        <input type="text" id="locationName" placeholder="e.g., Main Street Branch">
-                    </div>
-                    <div class="form-group">
-                        <label for="locationAddress">Full Address</label>
-                        <input type="text" id="locationAddress" name="locationAddress" placeholder="123 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
-                    </div>
-                    <div class="form-group">
-                        <label>Scope of Work</label>
-                        <input type="text" id="locationScope" placeholder="e.g., 15 VG + DCs, 5 PAs">
-                    </div>
-                    <div class="form-group">
-                        <label>Priority Level</label>
-                        <select id="locationPriority">
-                            <option value="High">High</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Site Availability</label>
-                        <input type="text" id="locationAvailability" placeholder="e.g., Mon-Fri 9AM-5PM">
-                    </div>
-                    <div class="form-group">
-                        <label>Contact Person</label>
-                        <input type="text" id="locationContact" placeholder="Name and phone">
-                    </div>
-                    <div class="form-group">
-                        <label>Special Requirements</label>
-                        <textarea id="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
-                    </div>
-                </div>
-                <button class="btn" id="addLocationBtn">Add Location</button>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Current Locations</h3>
-                </div>
-                <div id="locationList" class="list-container"></div>
-            </div>
-        </div>
-
-        <!-- Scopes Section -->
-        <div id="scopes" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Define Scope Templates</h3>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Scope Type</label>
-                        <input type="text" id="scopeType" placeholder="e.g., VG, DC, PA">
-                    </div>
-                    <div class="form-group">
-                        <label>Duration per Unit (minutes)</label>
-                        <input type="number" id="scopeDuration" min="1" placeholder="e.g., 30">
-                    </div>
-                    <div class="form-group">
-                        <label>Required Tech Count</label>
-                        <input type="number" id="scopeTechCount" min="1" value="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Complexity Factor</label>
-                        <select id="scopeComplexity">
-                            <option value="1">Simple (1x)</option>
-                            <option value="1.5">Moderate (1.5x)</option>
-                            <option value="2">Complex (2x)</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="btn" id="addScopeBtn">Add Scope Template</button>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Current Scope Templates</h3>
-                </div>
-                <div id="scopeList" class="scope-types"></div>
-            </div>
-        </div>
-
-        <!-- Schedule Section -->
-        <div id="schedule" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Schedule Parameters</h3>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Optimization Strategy</label>
-                        <select id="optimizationStrategy">
-                            <option value="efficiency">Maximum Efficiency</option>
-                            <option value="priority">Priority First</option>
-                            <option value="balanced">Balanced Approach</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Install Window Start</label>
-                        <input type="datetime-local" id="installWindowStart" value="">
-                    </div>
-                    <div class="form-group">
-                        <label>Install Window End</label>
-                        <input type="datetime-local" id="installWindowEnd" value="">
-                    </div>
-                </div>
-                <button class="btn" id="generateScheduleBtn">Generate Optimal Schedule</button>
-                <button class="btn btn-secondary" id="overrideScheduleBtn" style="margin-left:10px;">Override Parameters</button>
-            </div>
-            <div class="metrics" id="metrics"></div>
-            <div class="schedule-output" id="scheduleOutput">
-                <h3>Generated Schedule will appear here...</h3>
-            </div>
-        </div>
-    </div>
-
-    <script>
+        <script>
         // --- Data and UI Logic ---
         let technicians = [];
         let locations = [];
         let scopes = [];
+        let currentLocationScopes = [];
         let editTechId = null;
         let editLocationId = null;
+
+        // Add a global to store last unassigned locations
         let lastUnassignedLocations = [];
+
+        // Store last generated schedule and assignments for override
         let lastSchedule = {};
         let lastAssignments = [];
 
         // --- Persistent Storage ---
         function saveAllData() {
-            try {
-                const data = {
-                    technicians,
-                    locations,
-                    scopes,
-                    currentTab: getCurrentTabName()
-                };
-                // Using object storage instead of localStorage
-                window.appData = data;
-            } catch (e) {
-                console.warn('Could not save data:', e);
-            }
+            localStorage.setItem('technicians', JSON.stringify(technicians));
+            localStorage.setItem('locations', JSON.stringify(locations));
+            localStorage.setItem('scopes', JSON.stringify(scopes));
+            localStorage.setItem('currentTab', getCurrentTabName());
         }
-
         function loadAllData() {
-            try {
-                if (window.appData) {
-                    const data = window.appData;
-                    technicians = data.technicians || [];
-                    locations = data.locations || [];
-                    scopes = data.scopes || [];
-                }
-            } catch (e) {
-                console.warn('Could not load data:', e);
-            }
+            const techs = localStorage.getItem('technicians');
+            const locs = localStorage.getItem('locations');
+            const scps = localStorage.getItem('scopes');
+            if (techs) technicians = JSON.parse(techs);
+            if (locs) locations = JSON.parse(locs);
+            if (scps) scopes = JSON.parse(scps);
         }
-
         function getCurrentTabName() {
             const activeTab = document.querySelector('.tab.active');
-            return activeTab ? activeTab.dataset.tab : 'technicians';
+            if (!activeTab) return 'technicians';
+            return activeTab.textContent.trim().toLowerCase().replace(/\s/g, '');
+        }
+        function setCurrentTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            let found = false;
+            document.querySelectorAll('.tab').forEach(btn => {
+                if (btn.textContent.replace(/\s/g, '').toLowerCase().includes(tabName)) {
+                    btn.classList.add('active');
+                    found = true;
+                }
+            });
+            if (!found) document.querySelector('.tab').classList.add('active');
+            const section = document.getElementById(tabName) || document.querySelector('.section');
+            if (section) section.classList.add('active');
+            // Always update content when switching tabs
+            if (tabName === 'scopetemplates' || tabName === 'scopes') {
+                updateScopeList();
+            }
+            if (tabName === 'generateschedule' || tabName === 'schedule') {
+                updateScheduleTabContent();
+            }
         }
 
-        // --- Tab Logic ---
+        // --- Tab Logic (robust, no inline onclick, fluid UI) ---
         document.addEventListener('DOMContentLoaded', function () {
-            loadAllData();
-            
             // Tab click handler
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', function () {
                     // Remove active from all tabs and sections
                     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                    
                     // Add active to clicked tab and corresponding section
                     tab.classList.add('active');
-                    const tabName = tab.dataset.tab;
+                    const tabName = tab.getAttribute('data-tab');
                     const section = document.getElementById(tabName);
-                    if (section) {
-                        section.classList.add('active');
-                    }
-                    
-                    // Update content when switching tabs
+                    if (section) section.classList.add('active');
+                    // Save tab state
+                    localStorage.setItem('currentTab', tabName);
+                    // Always update content when switching tabs
                     if (tabName === 'scopes') {
                         updateScopeList();
                     }
                     if (tabName === 'schedule') {
                         updateScheduleTabContent();
                     }
-                    
-                    saveAllData();
                 });
             });
 
-            // Event listeners for buttons
-            document.getElementById('addTechBtn').addEventListener('click', addTechnician);
-            document.getElementById('addLocationBtn').addEventListener('click', addLocation);
-            document.getElementById('addScopeBtn').addEventListener('click', addScope);
-            document.getElementById('generateScheduleBtn').addEventListener('click', () => generateSchedule(false));
-            document.getElementById('overrideScheduleBtn').addEventListener('click', () => generateSchedule(true));
+            // Restore tab on load
+            const savedTab = localStorage.getItem('currentTab') || 'technicians';
+            const tabBtn = document.querySelector(`.tab[data-tab="${savedTab}"]`);
+            if (tabBtn) tabBtn.click();
+            else document.querySelector('.tab').click();
+        });
 
-            // Initialize displays
+        // --- Scope List always updates ---
+        function updateScopeList() {
+            const list = document.getElementById('scopeList');
+            if (!list) return;
+            if (scopes.length === 0) {
+                list.innerHTML = '<p style="color:#888;">No scope templates defined yet.</p>';
+                return;
+            }
+            list.innerHTML = scopes.map(scope => `
+                <div class="scope-type-card">
+                    <h5>${scope.type}</h5>
+                    <p><strong>Duration:</strong> ${scope.duration} min/unit</p>
+                    <p><strong>Tech Required:</strong> ${scope.techCount}</p>
+                    <p><strong>Complexity:</strong> ${scope.complexity}x</p>
+                    <button class="btn btn-danger" onclick="removeScope(${scope.id})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        // --- Schedule Tab always shows content ---
+        function updateScheduleTabContent() {
+            const scheduleOutput = document.getElementById('scheduleOutput');
+            if (!scheduleOutput) return;
+            if (scopes.length === 0) {
+                scheduleOutput.innerHTML = '<div class="error">Please define at least one scope template before generating a schedule.</div>';
+            } else if (technicians.length === 0 || locations.length === 0) {
+                scheduleOutput.innerHTML = '<div class="error">Please add at least one technician team and one location before generating a schedule.</div>';
+            } else {
+                scheduleOutput.innerHTML = '<h3>Generated Schedule will appear here...</h3>';
+            }
+            displayMetrics({}, []);
+        }
+
+        // --- Initialization ---
+        window.addEventListener('DOMContentLoaded', function() {
+            loadAllData();
             updateTechnicianList();
             updateLocationList();
+            updateScopeList();
+            // Restore tab
+            const savedTab = localStorage.getItem('currentTab') || 'technicians';
+            setCurrentTab(savedTab);
+            // Ensure scope and schedule sections are populated
             updateScopeList();
             updateScheduleTabContent();
         });
 
         // --- Technician CRUD ---
+        // Specialization is now a list of providers/certifications
         function getSelectedTechDays() {
             return Array.from(document.querySelectorAll('#techDaysCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
         }
-
         function setSelectedTechDays(days) {
             document.querySelectorAll('#techDaysCheckboxes input[type="checkbox"]').forEach(cb => {
                 cb.checked = days.includes(cb.value);
             });
         }
-
         function addTechnician() {
             const location = document.getElementById('techLocation').value.trim();
             const address = document.getElementById('techAddress').value.trim();
@@ -350,19 +431,19 @@
             const days = getSelectedTechDays();
             const startTime = document.getElementById('techStartTime').value;
             const endTime = document.getElementById('techEndTime').value;
+            // Specializations: comma-separated provider/certification names
             const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim()).filter(Boolean);
 
-            // Validation
-            const errors = [];
+            // --- Robust Data Validation ---
+            let errors = [];
             if (!location) errors.push("Base Location is required.");
             if (!address) errors.push("Technician Address is required.");
             if (!count || count < 1) errors.push("Number of Technicians must be at least 1.");
             if (!teamName) errors.push("Team Name/ID is required.");
             if (days.length === 0) errors.push("At least one availability day must be selected.");
             if (!startTime || !endTime) errors.push("Working hours are required.");
-            if (technicians.some(t => t.teamName === teamName && t.id !== editTechId)) {
-                errors.push("Team Name/ID must be unique.");
-            }
+            // Duplicate team name check
+            if (technicians.some(t => t.teamName === teamName && t.id !== editTechId)) errors.push("Team Name/ID must be unique.");
 
             if (errors.length > 0) {
                 alert("Please fix the following:\n" + errors.join("\n"));
@@ -400,12 +481,10 @@
                 };
                 technicians.push(tech);
             }
-            
             updateTechnicianList();
             clearTechForm();
             saveAllData();
         }
-
         function clearTechForm() {
             document.getElementById('techLocation').value = '';
             document.getElementById('techAddress').value = '';
@@ -418,7 +497,6 @@
             editTechId = null;
             document.getElementById('addTechBtn').textContent = "Add Technician Team";
         }
-
         function updateTechnicianList() {
             const list = document.getElementById('technicianList');
             if (technicians.length === 0) {
@@ -440,12 +518,11 @@
                         <p><strong>Team Size:</strong> ${tech.count} technicians</p>
                         <p><strong>Available:</strong> ${tech.days.join(', ')}</p>
                         <p><strong>Hours:</strong> ${tech.startTime} - ${tech.endTime}</p>
-                        <p><strong>Specializations:</strong> ${tech.specializations.join(', ') || 'All'}</p>
+                        <p><strong>Providers/Certifications:</strong> ${tech.specializations.join(', ') || 'All'}</p>
                     </div>
                 </div>
             `).join('');
         }
-
         function editTechnician(id) {
             const tech = technicians.find(t => t.id === id);
             if (!tech) return;
@@ -461,7 +538,6 @@
             document.getElementById('addTechBtn').textContent = "Save Technician Team";
             document.getElementById('techLocation').focus();
         }
-
         function removeTechnician(id) {
             technicians = technicians.filter(t => t.id !== id);
             updateTechnicianList();
@@ -479,13 +555,27 @@
             const contact = document.getElementById('locationContact').value.trim();
             const notes = document.getElementById('locationNotes').value.trim();
 
-            // Validation
-            const errors = [];
+            // --- Robust Data Validation ---
+            let errors = [];
             if (!siteId) errors.push("Site ID is required.");
             if (!address) errors.push("Full Address is required.");
             if (!scope) errors.push("Scope of Work is required.");
-            if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) {
-                errors.push("Site ID must be unique.");
+            // Duplicate site ID check
+            if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) errors.push("Site ID must be unique.");
+
+            // Validate address with Google Places (if possible)
+            // (Optional: could use autocomplete's place_changed event for stricter validation)
+
+            // Validate scope types exist
+            const scopeItems = parseScope(scope);
+            const missingScopes = scopeItems.filter(item =>
+                !scopes.some(s =>
+                    item.type.toLowerCase().includes(s.type.toLowerCase()) ||
+                    s.type.toLowerCase().includes(item.type.toLowerCase())
+                )
+            );
+            if (missingScopes.length > 0) {
+                errors.push("Scope type(s) not defined: " + missingScopes.map(s => s.type).join(', '));
             }
 
             if (errors.length > 0) {
@@ -494,6 +584,7 @@
             }
 
             if (editLocationId !== null) {
+                // Edit mode: update existing location
                 const idx = locations.findIndex(l => l.id === editLocationId);
                 if (idx !== -1) {
                     locations[idx] = {
@@ -509,8 +600,9 @@
                     };
                 }
                 editLocationId = null;
-                document.getElementById('addLocationBtn').textContent = "Add Location";
+                document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             } else {
+                // Add mode: add new location
                 const location = {
                     id: Date.now(),
                     siteId,
@@ -524,12 +616,10 @@
                 };
                 locations.push(location);
             }
-            
             updateLocationList();
             clearLocationForm();
             saveAllData();
         }
-
         function updateLocationList() {
             const list = document.getElementById('locationList');
             if (locations.length === 0) {
@@ -556,7 +646,6 @@
                 </div>
             `).join('');
         }
-
         function editLocation(id) {
             const loc = locations.find(l => l.id === id);
             if (!loc) return;
@@ -569,17 +658,15 @@
             document.getElementById('locationContact').value = loc.contact;
             document.getElementById('locationNotes').value = loc.notes;
             editLocationId = id;
-            document.getElementById('addLocationBtn').textContent = "Save Location";
+            document.querySelector('button[onclick="addLocation()"]').textContent = "Save Location";
             document.getElementById('locationId').focus();
         }
-
         function removeLocation(id) {
             locations = locations.filter(l => l.id !== id);
             updateLocationList();
             clearLocationForm();
             saveAllData();
         }
-
         function clearLocationForm() {
             document.getElementById('locationId').value = '';
             document.getElementById('locationName').value = '';
@@ -590,7 +677,9 @@
             document.getElementById('locationNotes').value = '';
             document.getElementById('locationPriority').value = 'Medium';
             editLocationId = null;
-            document.getElementById('addLocationBtn').textContent = "Add Location";
+            document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
+            currentLocationScopes = [];
+            if (typeof renderLocationScopeList === "function") renderLocationScopeList();
         }
 
         // --- Scope CRUD ---
@@ -600,15 +689,14 @@
             const techCount = parseInt(document.getElementById('scopeTechCount').value);
             const complexity = parseFloat(document.getElementById('scopeComplexity').value);
 
-            // Validation
-            const errors = [];
+            // --- Robust Data Validation ---
+            let errors = [];
             if (!type) errors.push("Scope Type is required.");
             if (!duration || duration < 1) errors.push("Duration per Unit must be at least 1.");
             if (!techCount || techCount < 1) errors.push("Required Tech Count must be at least 1.");
             if (!complexity || complexity < 1) errors.push("Complexity Factor must be at least 1.");
-            if (scopes.some(s => s.type.toLowerCase() === type.toLowerCase())) {
-                errors.push("Scope Type must be unique.");
-            }
+            // Duplicate scope type check
+            if (scopes.some(s => s.type.toLowerCase() === type.toLowerCase())) errors.push("Scope Type must be unique.");
 
             if (errors.length > 0) {
                 alert("Please fix the following:\n" + errors.join("\n"));
@@ -628,14 +716,12 @@
             clearScopeForm();
             saveAllData();
         }
-
         function clearScopeForm() {
             document.getElementById('scopeType').value = '';
             document.getElementById('scopeDuration').value = '';
             document.getElementById('scopeTechCount').value = '1';
             document.getElementById('scopeComplexity').value = '1';
         }
-
         function updateScopeList() {
             const list = document.getElementById('scopeList');
             if (scopes.length === 0) {
@@ -652,29 +738,13 @@
                 </div>
             `).join('');
         }
-
         function removeScope(id) {
             scopes = scopes.filter(s => s.id !== id);
             updateScopeList();
             saveAllData();
         }
 
-        // --- Schedule Tab Content ---
-        function updateScheduleTabContent() {
-            const scheduleOutput = document.getElementById('scheduleOutput');
-            if (!scheduleOutput) return;
-            
-            if (scopes.length === 0) {
-                scheduleOutput.innerHTML = '<div class="error">Please define at least one scope template before generating a schedule.</div>';
-            } else if (technicians.length === 0 || locations.length === 0) {
-                scheduleOutput.innerHTML = '<div class="error">Please add at least one technician team and one location before generating a schedule.</div>';
-            } else {
-                scheduleOutput.innerHTML = '<h3>Generated Schedule will appear here...</h3>';
-            }
-            displayMetrics({}, []);
-        }
-
-        // --- Helper Functions ---
+        // --- Helper: Parse scope string into items ---
         function parseScope(scopeString) {
             const items = [];
             const parts = scopeString.split(',');
@@ -691,6 +761,7 @@
             return items;
         }
 
+        // --- Helper: Calculate job duration based on scope ---
         function calculateJobDuration(scopeString) {
             const scopeItems = parseScope(scopeString);
             let totalDuration = 0;
@@ -708,12 +779,41 @@
             return totalDuration;
         }
 
+        // --- Helper: Calculate driving time and distance using Google Maps Distance Matrix API ---
+        async function getDriveInfo(origin, destination) {
+            return new Promise((resolve) => {
+                if (!origin || !destination) return resolve({minutes: 0, miles: 0});
+                if (!window.google || !window.google.maps || !window.google.maps.DistanceMatrixService) return resolve({minutes: 30, miles: 10});
+                const service = new google.maps.DistanceMatrixService();
+                service.getDistanceMatrix(
+                    {
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.DRIVING,
+                        unitSystem: google.maps.UnitSystem.IMPERIAL,
+                    },
+                    (response, status) => {
+                        if (status === "OK" && response.rows[0].elements[0].status === "OK") {
+                            const duration = response.rows[0].elements[0].duration.value; // seconds
+                            const distance = response.rows[0].elements[0].distance.value; // meters
+                            const miles = (distance / 1609.34).toFixed(1);
+                            resolve({minutes: Math.round(duration / 60), miles: miles});
+                        } else {
+                            resolve({minutes: 30, miles: 10});
+                        }
+                    }
+                );
+            });
+        }
+
+        // --- Helper: Get available days for a location ---
         function getLocationAvailableDays(location) {
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             if (!location.availability || location.availability.trim() === "") return days;
             return days.filter(day => location.availability.toLowerCase().includes(day.toLowerCase()));
         }
 
+        // --- Helper: Get location available time window ---
         function getLocationAvailableTime(location) {
             let startHour = 8, startMin = 0, endHour = 17, endMin = 0;
             const timeMatch = location.availability && location.availability.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
@@ -728,7 +828,7 @@
             return { startHour, startMin, endHour, endMin };
         }
 
-        // --- Scheduling Logic ---
+        // --- Advanced Scheduling Logic ---
         async function generateSchedule(overrideMode = false) {
             if (technicians.length === 0 || locations.length === 0) {
                 alert('Please add at least one technician team and one location');
@@ -738,17 +838,14 @@
                 alert('Please define at least one scope template.');
                 return;
             }
-
             document.getElementById('scheduleOutput').innerHTML = '<h3>Generating schedule, please wait...</h3>';
 
             const strategy = document.getElementById('optimizationStrategy').value;
             let sortedLocations = [...locations];
-            
             if (strategy === 'priority') {
                 const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
                 sortedLocations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
             }
-
             const schedule = {};
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             let unassignedLocations = [];
@@ -757,14 +854,13 @@
             // Get install window from user
             const installWindowStart = document.getElementById('installWindowStart').value;
             const installWindowEnd = document.getElementById('installWindowEnd').value;
-            let windowStart = installWindowStart ? new Date(installWindowStart) : null;
-            let windowEnd = installWindowEnd ? new Date(installWindowEnd) : null;
+            let windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
+            let windowEnd = installWindowEnd ? new Date(installWindowEnd + "T23:59:59") : null;
 
             const today = new Date();
             let weekStart = windowStart ? new Date(windowStart) : new Date(today);
             weekStart.setHours(0,0,0,0);
 
-            // Drive info cache to avoid repeated API calls
             const driveInfoCache = {};
             async function getDriveInfoCached(tech, location) {
                 const key = `${tech.address}|${location.address}`;
@@ -785,12 +881,12 @@
 
             for (const location of sortedLocations) {
                 let scheduled = false;
-                const availableDays = overrideMode ? days : getLocationAvailableDays(location);
+                const availableDays = getLocationAvailableDays(location);
                 const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
 
                 for (const day of availableDays) {
-                    // Find all techs available on this day (or all techs in override mode)
-                    const availableTechs = overrideMode ? technicians : technicians.filter(tech => tech.days.includes(day));
+                    // Find all techs available on this day
+                    const availableTechs = technicians.filter(tech => tech.days.includes(day));
                     if (availableTechs.length === 0) continue;
 
                     // Parse scope and get required tech count
@@ -808,40 +904,32 @@
                         }
                     });
 
-                    // Try techs in order of shortest drive time (for efficiency strategy)
-                    let techsWithDriveTime = [];
-                    for (const tech of availableTechs) {
-                        const driveInfo = await getDriveInfoCached(tech, location);
-                        techsWithDriveTime.push({ tech, driveInfo });
-                    }
-                    
-                    if (strategy === 'efficiency') {
-                        techsWithDriveTime.sort((a, b) => a.driveInfo.minutes - b.driveInfo.minutes);
-                    }
-
-                    // Find best tech for this job
-                    for (const { tech, driveInfo } of techsWithDriveTime) {
-                        // Check specialization (skip in override mode)
-                        if (!overrideMode && tech.specializations.length > 0 && requiredSpecializations.length > 0) {
+                    // Find all tech teams that match specialization and have enough available techs
+                    let candidateTechs = availableTechs.filter(tech => {
+                        // Check specialization
+                        if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
                             if (!requiredSpecializations.every(req =>
                                 tech.specializations.some(sp => sp.toLowerCase() === req.toLowerCase())
-                            )) continue;
+                            )) return false;
                         }
-
                         // Check available techs for this day
-                        const availableTechCount = tech.count - (techUsage[day][tech.id] || 0);
-                        if (!overrideMode && availableTechCount < requiredTechs) continue;
+                        return (tech.count - techUsage[day][tech.id]) >= requiredTechs;
+                    });
 
-                        const assignableTechs = Math.min(availableTechCount, requiredTechs);
-                        if (assignableTechs <= 0) continue;
+                    // Try all candidate techs, schedule with the one with shortest drive
+                    let bestTech = null;
+                    let bestDrive = null;
+                    let bestAssignment = null;
 
+                    for (const tech of candidateTechs) {
+                        const driveInfo = await getDriveInfoCached(tech, location);
                         const jobDuration = calculateJobDuration(location.scope);
 
                         // Get tech working hours for this day
                         const dayDate = new Date(weekStart);
                         dayDate.setDate(weekStart.getDate() + days.indexOf(day));
-                        if (!overrideMode && windowStart && dayDate < windowStart) continue;
-                        if (!overrideMode && windowEnd && dayDate > windowEnd) continue;
+                        if (windowStart && dayDate < windowStart) continue;
+                        if (windowEnd && dayDate > windowEnd) continue;
 
                         // Align job start/end with both tech and location time windows
                         const techStart = tech.startTime.split(':');
@@ -859,55 +947,49 @@
                         const jobStartTime = new Date(startTime);
                         const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
-                        // Check if job fits in time window (skip in override mode)
-                        if (!overrideMode && jobEndTime > endTime) continue;
-                        if (!overrideMode && ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd))) continue;
+                        // Only schedule if within tech's and location's working hours and install window
+                        if (jobEndTime > endTime) continue;
+                        if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) continue;
 
-                        // Build override parameters for transparency
-                        let overrideParams = [];
-                        if (overrideMode) {
-                            if (!getLocationAvailableDays(location).includes(day)) overrideParams.push("Location Availability");
-                            if (!tech.days.includes(day)) overrideParams.push("Tech Availability");
-                            if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
-                                if (!requiredSpecializations.every(req =>
-                                    tech.specializations.some(sp => sp.toLowerCase() === req.toLowerCase())
-                                )) overrideParams.push("Specialization");
-                            }
-                            if ((tech.count - (techUsage[day][tech.id] || 0)) < requiredTechs) overrideParams.push("Tech Count");
-                            if (jobEndTime > endTime) overrideParams.push("Time Window");
-                            if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) overrideParams.push("Install Window");
+                        // Use the tech with the shortest drive
+                        if (!bestDrive || driveInfo.minutes < bestDrive.minutes) {
+                            bestTech = tech;
+                            bestDrive = driveInfo;
+                            bestAssignment = {
+                                location: location,
+                                startDateTime: new Date(jobStartTime),
+                                endDateTime: new Date(jobEndTime),
+                                duration: jobDuration,
+                                driveTime: driveInfo.minutes,
+                                driveMiles: driveInfo.miles,
+                                team: tech,
+                                day: day,
+                                overrideParams: [],
+                                assignedTechs: requiredTechs
+                            };
                         }
+                    }
 
-                        // Schedule the job
-                        if (!schedule[day]) schedule[day] = { date: dayDate, teams: [] };
-                        let teamEntry = schedule[day].teams.find(t => t.team.teamName === tech.teamName);
+                    // If we found a tech, schedule the job and update tech usage
+                    if (bestTech && bestAssignment) {
+                        if (!schedule[day]) schedule[day] = { date: null, teams: [] };
+                        if (!schedule[day].date) {
+                            const dayDate = new Date(weekStart);
+                            dayDate.setDate(weekStart.getDate() + days.indexOf(day));
+                            schedule[day].date = dayDate;
+                        }
+                        let teamEntry = schedule[day].teams.find(t => t.team.teamName === bestTech.teamName);
                         if (!teamEntry) {
-                            teamEntry = { team: tech, assignments: [] };
+                            teamEntry = { team: bestTech, assignments: [] };
                             schedule[day].teams.push(teamEntry);
                         }
-
-                        const assignment = {
-                            location: location,
-                            startDateTime: new Date(jobStartTime),
-                            endDateTime: new Date(jobEndTime),
-                            duration: jobDuration,
-                            driveTime: driveInfo.minutes,
-                            driveMiles: driveInfo.miles,
-                            team: tech,
-                            day: day,
-                            overrideParams: overrideParams,
-                            assignedTechs: assignableTechs
-                        };
-
-                        teamEntry.assignments.push(assignment);
-                        assignments.push(assignment);
-                        techUsage[day][tech.id] = (techUsage[day][tech.id] || 0) + assignableTechs;
+                        teamEntry.assignments.push(bestAssignment);
+                        assignments.push(bestAssignment);
+                        techUsage[day][bestTech.id] += requiredTechs;
                         scheduled = true;
-                        break;
+                        break; // Stop after scheduling this location
                     }
-                    if (scheduled) break;
                 }
-                
                 if (!scheduled) {
                     unassignedLocations.push(location);
                 }
@@ -917,35 +999,199 @@
             lastSchedule = schedule;
             lastAssignments = assignments;
 
-            displaySchedule(schedule, unassignedLocations, overrideMode);
+            displaySchedule(schedule, unassignedLocations, false);
             displayMetrics(schedule, unassignedLocations);
-        }e(schedule, unassignedLocations, overrideMode);
-            displayMetrics(schedule, unassignedLocations);
+
+            // Show override button only if there are unassigned locations
+            const overrideBtn = document.getElementById('overrideBtn');
+            if (overrideBtn) {
+                overrideBtn.style.display = unassignedLocations.length > 0 ? 'inline-block' : 'none';
+            }
         }
 
+        // --- Override Scheduling for unassigned locations only, showing all jobs ---
+        async function overrideUnassignedSchedule() {
+            if (!lastUnassignedLocations || lastUnassignedLocations.length === 0) {
+                alert('No unassigned locations to override.');
+                return;
+            }
+            document.getElementById('scheduleOutput').innerHTML = '<h3>Overriding parameters for unassigned locations...</h3>';
+
+            const installWindowStart = document.getElementById('installWindowStart').value;
+            const installWindowEnd = document.getElementById('installWindowEnd').value;
+            let windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
+            let windowEnd = installWindowEnd ? new Date(installWindowEnd + "T23:59:59") : null;
+
+            const today = new Date();
+            let weekStart = windowStart ? new Date(windowStart) : new Date(today);
+            weekStart.setHours(0,0,0,0);
+
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const driveInfoCache = {};
+            async function getDriveInfoCached(tech, location) {
+                const key = `${tech.address}|${location.address}`;
+                if (driveInfoCache[key] !== undefined) return driveInfoCache[key];
+                const info = await getDriveInfo(tech.address, location.address);
+                driveInfoCache[key] = info;
+                return info;
+            }
+
+            // Track tech resource usage per day
+            const techUsage = {};
+            for (const day of days) {
+                techUsage[day] = {};
+                technicians.forEach(tech => {
+                    techUsage[day][tech.id] = 0;
+                });
+            }
+
+            let allAssignments = [...lastAssignments];
+            let schedule = JSON.parse(JSON.stringify(lastSchedule)); // Deep copy
+
+            for (const location of lastUnassignedLocations) {
+                let scheduled = false;
+                const availableDays = getLocationAvailableDays(location);
+                const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
+
+                // Try ALL days, not just availableDays, for override
+                for (const day of days) {
+                    // Use ALL techs, not just those available on that day
+                    for (const tech of technicians) {
+                        // Parse scope and get required tech count
+                        const scopeItems = parseScope(location.scope);
+                        let requiredTechs = 0;
+                        let requiredSpecializations = [];
+                        scopeItems.forEach(item => {
+                            const scopeTemplate = scopes.find(s =>
+                                item.type.toLowerCase().includes(s.type.toLowerCase()) ||
+                                s.type.toLowerCase().includes(item.type.toLowerCase())
+                            );
+                            if (scopeTemplate) {
+                                requiredTechs = Math.max(requiredTechs, scopeTemplate.techCount);
+                                requiredSpecializations.push(scopeTemplate.type);
+                            }
+                        });
+
+                        // Assign as many techs as possible, up to requiredTechs
+                        let assignableTechs = Math.min(tech.count - (techUsage[day][tech.id] || 0), requiredTechs);
+                        if (assignableTechs <= 0) continue;
+
+                        // Specialization check (override: allow any tech)
+                        // Time window: use max possible overlap
+                        const dayDate = new Date(weekStart);
+                        dayDate.setDate(weekStart.getDate() + days.indexOf(day));
+
+                        const techStart = tech.startTime.split(':');
+                        const techEnd = tech.endTime.split(':');
+                        let startHour = Math.max(parseInt(techStart[0]), locStartHour);
+                        let startMin = Math.max(parseInt(techStart[1]), locStartMin);
+                        let endHour = Math.min(parseInt(techEnd[0]), locEndHour);
+                        let endMin = Math.min(parseInt(techEnd[1]), locEndMin);
+
+                        const startTime = new Date(dayDate);
+                        startTime.setHours(startHour, startMin, 0, 0);
+                        const endTime = new Date(dayDate);
+                        endTime.setHours(endHour, endMin, 0, 0);
+
+                        const jobStartTime = new Date(startTime);
+                        const jobDuration = calculateJobDuration(location.scope);
+                        const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
+
+                        // Drive info
+                        const driveInfo = await getDriveInfoCached(tech, location);
+
+                        // Build overrideParams for transparency
+                        let paramsBroken = [];
+                        if (!availableDays.includes(day)) paramsBroken.push("Location Availability");
+                        if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
+                            if (!requiredSpecializations.every(req =>
+                                tech.specializations.some(sp => sp.toLowerCase() === req.toLowerCase())
+                            )) paramsBroken.push("Specialization");
+                        }
+                        if ((tech.count - (techUsage[day][tech.id] || 0)) < requiredTechs) paramsBroken.push("Tech Count");
+                        if (jobEndTime > endTime) paramsBroken.push("Time Window");
+                        if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) paramsBroken.push("Install Window");
+
+                        // Schedule anyway, even if paramsBroken is not empty
+                        if (!schedule[day]) schedule[day] = { date: null, teams: [] };
+                        if (!schedule[day].date) {
+                            const dayDate = new Date(weekStart);
+                            dayDate.setDate(weekStart.getDate() + days.indexOf(day));
+                            schedule[day].date = dayDate;
+                        }
+                        let teamEntry = schedule[day].teams.find(t => t.team.teamName === tech.teamName);
+                        if (!teamEntry) {
+                            teamEntry = { team: tech, assignments: [] };
+                            schedule[day].teams.push(teamEntry);
+                        }
+                        teamEntry.assignments.push({
+                            location: location,
+                            startDateTime: new Date(jobStartTime),
+                            endDateTime: new Date(jobEndTime),
+                            duration: jobDuration,
+                            driveTime: driveInfo.minutes,
+                            driveMiles: driveInfo.miles,
+                            team: tech,
+                            day: day,
+                            overrideParams: paramsBroken,
+                            assignedTechs: assignableTechs
+                        });
+                        allAssignments.push({
+                            location: location,
+                            startDateTime: new Date(jobStartTime),
+                            endDateTime: new Date(jobEndTime),
+                            duration: jobDuration,
+                            driveTime: driveInfo.minutes,
+                            driveMiles: driveInfo.miles,
+                            team: tech,
+                            day: day,
+                            overrideParams: paramsBroken,
+                            assignedTechs: assignableTechs
+                        });
+                        techUsage[day][tech.id] = (techUsage[day][tech.id] || 0) + assignableTechs;
+                        scheduled = true;
+                        break; // Stop after scheduling with one tech for this location
+                    }
+                    if (scheduled) break;
+                }
+            }
+
+            displaySchedule(schedule, [], true);
+            displayMetrics(schedule, []);
+        }
+
+        // --- Update displaySchedule to show all jobs and override reasons ---
         function displaySchedule(schedule, unassigned, overrideMode = false) {
             const output = document.getElementById('scheduleOutput');
-            let html = '<h3>Installation Schedule</h3>';
-            
+            let html = '<h3>📅 Optimized Installation Schedule</h3>';
             Object.entries(schedule).forEach(([day, dayObj]) => {
-                const { date, teams } = dayObj;
-                if (teams && teams.length > 0) {
+                let { date, teams } = dayObj;
+                // --- Fix: Ensure date is a Date object before using toLocaleDateString ---
+                if (date && typeof date === "string") {
+                    // Try to parse ISO string or fallback
+                    let parsed = new Date(date);
+                    if (!isNaN(parsed.getTime())) {
+                        date = parsed;
+                    } else {
+                        date = new Date();
+                    }
+                }
+                if (teams.length > 0) {
                     html += `<div class="schedule-day">`;
-                    html += `<h4>${day} - ${date instanceof Date ? date.toLocaleDateString() : day}</h4>`;
+                    html += `<h4>${day} &mdash; ${date instanceof Date && !isNaN(date) ? date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : day}</h4>`;
                     teams.forEach(teamSchedule => {
                         html += `<div class="assignment">`;
                         html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
                         teamSchedule.assignments.forEach(assignment => {
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
-                            html += `<span class="tech-tag">${assignment.startDateTime instanceof Date ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.startDateTime}</span>`;
-                            html += ` - <span class="tech-tag">${assignment.endDateTime instanceof Date ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.endDateTime}</span>`;
-                            html += ` <span class="location-tag">${assignment.location.siteId}</span>`;
-                            html += `<p style="margin-top: 5px;">Address: ${assignment.location.address}</p>`;
-                            html += `<p>Scope: ${assignment.location.scope}</p>`;
-                            html += `<p>Est. Duration: ${assignment.duration} minutes</p>`;
-                            html += `<p>Est. Drive: ${assignment.driveMiles} mi, ${assignment.driveTime} min</p>`;
+                            html += `<span class="tech-tag">${assignment.startDateTime instanceof Date ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.startDateTime}</span> - <span class="tech-tag">${assignment.endDateTime instanceof Date ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.endDateTime}</span>`;
+                            html += `<span class="location-tag">${assignment.location.siteId}</span>`;
+                            html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
+                            html += `<p>📋 ${assignment.location.scope}</p>`;
+                            html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
+                            html += `<p>🚗 Est. Drive: ${assignment.driveMiles} mi, ${assignment.driveTime} min</p>`;
                             if (overrideMode && assignment.overrideParams && assignment.overrideParams.length > 0) {
-                                html += `<p style="color:#c33;"><strong>Override:</strong> ${assignment.overrideParams.join(', ')}</p>`;
+                                html += `<p style="color:#c33;"><strong>Override: </strong>Scheduled by breaking: ${assignment.overrideParams.join(', ')}</p>`;
                             }
                             html += `</div>`;
                         });
@@ -954,24 +1200,26 @@
                     html += `</div>`;
                 }
             });
-
             if (!overrideMode && unassigned.length > 0) {
                 html += `<div class="error">`;
-                html += `<h4>Unassigned Locations (${unassigned.length})</h4>`;
+                html += `<h4>⚠️ Unassigned Locations (${unassigned.length})</h4>`;
                 unassigned.forEach(loc => {
                     html += `<p>• ${loc.siteId} - ${loc.address} (${loc.scope})</p>`;
                 });
-                html += `<p><strong>Consider adding more technician teams, updating specializations, or extending working hours.</strong></p>`;
+                html += `<p><strong>Reasons may include: insufficient techs, missing provider/certification, or site not available that day.</strong></p>`;
+                html += `<p><strong>Consider adding more technician teams, updating certifications, or extending working hours.</strong></p>`;
+                html += `<button class="btn btn-secondary" id="overrideBtn" onclick="overrideUnassignedSchedule()" style="margin-top:10px;">Override Parameters for Unassigned</button>`;
                 html += `</div>`;
             }
-            
             output.innerHTML = html;
         }
 
+        // --- Metrics Display (add this function to fix the error) ---
         function displayMetrics(schedule, unassigned) {
             const metricsDiv = document.getElementById('metrics');
             if (!metricsDiv) return;
 
+            // Calculate metrics
             let totalJobs = 0;
             let totalDriveMinutes = 0;
             let totalDriveMiles = 0;
@@ -983,14 +1231,12 @@
                     if (dayObj.teams) {
                         totalTeams += dayObj.teams.length;
                         dayObj.teams.forEach(team => {
-                            if (team.assignments) {
-                                team.assignments.forEach(a => {
-                                    totalJobs++;
-                                    totalDriveMinutes += Number(a.driveTime) || 0;
-                                    totalDriveMiles += Number(a.driveMiles) || 0;
-                                    totalDuration += Number(a.duration) || 0;
-                                });
-                            }
+                            team.assignments.forEach(a => {
+                                totalJobs++;
+                                totalDriveMinutes += Number(a.driveTime) || 0;
+                                totalDriveMiles += Number(a.driveMiles) || 0;
+                                totalDuration += Number(a.duration) || 0;
+                            });
                         });
                     }
                 });
@@ -1025,6 +1271,6 @@
                 ` : ''}
             `;
         }
-    </script>
-</body>
-</html>
+        </script>
+    </body>
+    </html>
