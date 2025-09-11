@@ -147,6 +147,14 @@
         <div id="locations" class="section">
             <div class="card">
                 <div class="card-header">
+                    <h3 class="card-title">Project Providers (Applies to all locations)</h3>
+                </div>
+                <div id="projectProviderCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <!-- Provider checkboxes will be inserted here by JS -->
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
                     <h3 class="card-title">Add Installation Location</h3>
                 </div>
                 <div class="form-grid">
@@ -185,12 +193,6 @@
                     <div class="form-group">
                         <label>Special Requirements</label>
                         <textarea id="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Providers (Project Type)</label>
-                        <div id="locationProviderCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
-                            <!-- Provider checkboxes will be inserted here by JS -->
-                        </div>
                     </div>
                 </div>
                 <button class="btn" onclick="addLocation()">Add Location</button>
@@ -288,7 +290,7 @@
         let technicians = [];
         let locations = [];
         let scopes = [];
-        let currentLocationScopes = [];
+        let projectProviders = [];
         let editTechId = null;
         let editLocationId = null;
         const providers = ["Motive", "Lytx", "Samsara", "Verizon Connect", "Vestige", "LinxUp"];
@@ -305,17 +307,20 @@
             localStorage.setItem('technicians', JSON.stringify(technicians));
             localStorage.setItem('locations', JSON.stringify(locations));
             localStorage.setItem('scopes', JSON.stringify(scopes));
+            localStorage.setItem('projectProviders', JSON.stringify(projectProviders));
         }
         function loadAllData() {
             const techs = localStorage.getItem('technicians');
             const locs = localStorage.getItem('locations');
             const scps = localStorage.getItem('scopes');
+            const projs = localStorage.getItem('projectProviders');
             const lastSched = localStorage.getItem('lastSchedule');
             const lastUnassigned = localStorage.getItem('lastUnassignedLocations');
 
             if (techs) technicians = JSON.parse(techs);
             if (locs) locations = JSON.parse(locs);
             if (scps) scopes = JSON.parse(scps);
+            if (projs) projectProviders = JSON.parse(projs);
             if (lastSched) {
                 lastSchedule = JSON.parse(lastSched);
                 // Re-parse dates from string to Date objects
@@ -364,6 +369,9 @@
                 displaySchedule(lastSchedule, lastUnassignedLocations);
                 displayMetrics(lastSchedule, lastUnassignedLocations);
             }
+            if (tabName === 'locations') {
+                updateLocationProviderCheckboxes();
+            }
         }
 
         // --- Tab Logic (robust, no inline onclick, fluid UI) ---
@@ -385,6 +393,9 @@
                         updateScheduleTabContent();
                         displaySchedule(lastSchedule, lastUnassignedLocations);
                         displayMetrics(lastSchedule, lastUnassignedLocations);
+                    }
+                    if (tabName === 'locations') {
+                        updateLocationProviderCheckboxes();
                     }
                 });
             });
@@ -424,15 +435,26 @@
 
         function populateProviderCheckboxes() {
             const techContainer = document.getElementById('techProviderCheckboxes');
-            const locationContainer = document.getElementById('locationProviderCheckboxes');
+            const locationContainer = document.getElementById('projectProviderCheckboxes');
+            
             if (techContainer) {
                 techContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('');
             }
             if (locationContainer) {
-                locationContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('');
+                locationContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}" onchange="updateProjectProviders()"> ${p}</label>`).join('');
+                setSelectedProviders('projectProviderCheckboxes', projectProviders);
             }
         }
         
+        function updateProjectProviders() {
+            const container = document.getElementById('projectProviderCheckboxes');
+            if (container) {
+                projectProviders = Array.from(container.querySelectorAll(`input[type="checkbox"]:checked`)).map(cb => cb.value);
+                saveAllData();
+                updateLocationList();
+            }
+        }
+
         function getSelectedProviders(containerId) {
             const container = document.getElementById(containerId);
             if (!container) return [];
@@ -441,7 +463,7 @@
         
         function setSelectedProviders(containerId, selectedProviders) {
             document.querySelectorAll(`#${containerId} input[type="checkbox"]`).forEach(cb => {
-                cb.checked = selectedProviders.includes(cb.value);
+                cb.checked = (selectedProviders || []).includes(cb.value);
             });
         }
         
@@ -665,14 +687,13 @@
             const availability = document.getElementById('locationAvailability')?.value.trim();
             const contact = document.getElementById('locationContact')?.value.trim();
             const notes = document.getElementById('locationNotes')?.value.trim();
-            const providers = getSelectedProviders('locationProviderCheckboxes');
 
             let errors = [];
             if (!siteId) errors.push("Site ID is required.");
             if (!address) errors.push("Full Address is required.");
             if (!scope) errors.push("Scope of Work is required.");
             if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) errors.push("Site ID must be unique.");
-            if (providers.length === 0) errors.push("At least one provider must be selected.");
+            if (projectProviders.length === 0) errors.push("At least one provider must be selected for the project.");
 
             const scopeItems = parseScope(scope);
             const missingScopes = scopeItems.filter(item =>
@@ -694,12 +715,12 @@
             if (editLocationId !== null) {
                 const idx = locations.findIndex(l => l.id === editLocationId);
                 if (idx !== -1) {
-                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes, providers };
+                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes, providers: projectProviders };
                 }
                 editLocationId = null;
                 document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             } else {
-                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes, providers };
+                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes, providers: projectProviders };
                 locations.push(location);
             }
             updateLocationList();
@@ -726,7 +747,7 @@
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
                         <p><strong>Availability:</strong> ${loc.availability}</p>
-                        <p><strong>Providers:</strong> ${(loc.providers || []).join(', ') || 'None'}</p>
+                        <p><strong>Providers:</strong> ${(projectProviders || []).join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
                     </div>
@@ -744,7 +765,6 @@
             if (document.getElementById('locationAvailability')) document.getElementById('locationAvailability').value = loc.availability;
             if (document.getElementById('locationContact')) document.getElementById('locationContact').value = loc.contact;
             if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = loc.notes;
-            setSelectedProviders('locationProviderCheckboxes', loc.providers || []);
             editLocationId = id;
             if (document.querySelector('button[onclick="addLocation()"]')) document.querySelector('button[onclick="addLocation()"]').textContent = "Save Location";
             if (document.getElementById('locationId')) document.getElementById('locationId').focus();
@@ -764,7 +784,6 @@
             if (document.getElementById('locationContact')) document.getElementById('locationContact').value = '';
             if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = '';
             if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = 'Medium';
-            setSelectedProviders('locationProviderCheckboxes', []);
             editLocationId = null;
             if (document.querySelector('button[onclick="addLocation()"]')) document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             currentLocationScopes = [];
@@ -927,6 +946,10 @@
                 alert('Please define at least one scope template.');
                 return;
             }
+            if (projectProviders.length === 0) {
+                alert('Please select at least one provider for the project.');
+                return;
+            }
             document.getElementById('scheduleOutput').innerHTML = '<h3>Generating schedule, please wait...</h3>';
 
             const strategy = document.getElementById('optimizationStrategy')?.value;
@@ -978,7 +1001,7 @@
                 if (isLocationAvailable && (!windowStart || currentDate >= windowStart) && (!windowEnd || currentDate <= windowEnd)) {
                     
                     const eligibleTeams = technicians.filter(tech => {
-                        const hasProviderMatch = (location.providers || []).every(provider => (tech.providers || []).includes(provider));
+                        const hasProviderMatch = (projectProviders || []).every(provider => (tech.providers || []).includes(provider));
                         return (tech.days || []).includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0 && hasProviderMatch;
                     });
 
@@ -1176,7 +1199,7 @@
                         const techsToAssign = Math.min(availableTechsInTeam, requiredTechs - assignedTechCount);
 
                         if(techsToAssign > 0) {
-                            const hasProviderMatch = (location.providers || []).every(provider => (team.providers || []).includes(provider));
+                            const hasProviderMatch = (projectProviders || []).every(provider => (team.providers || []).includes(provider));
                             if (!hasProviderMatch) {
                                 paramsBroken.push("Provider Certification");
                             }
@@ -1351,7 +1374,7 @@
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
-                        html += `<p>🔌 Providers: ${(assignment.location.providers || []).join(', ') || 'None'}</p>`;
+                        html += `<p>🔌 Providers: ${(projectProviders || []).join(', ') || 'None'}</p>`;
                         
                         if (assignment.assignedTeams.length > 0) {
                             const primaryTeam = assignment.assignedTeams[0];
@@ -1533,7 +1556,7 @@
                         assignment.location.siteId,
                         assignment.location.address,
                         assignment.location.scope,
-                        (assignment.location.providers || []).join(', '),
+                        (projectProviders || []).join(', '),
                         assignment.duration,
                         teamData.driveInfo.minutes,
                         teamData.driveInfo.miles,
@@ -1559,7 +1582,7 @@
                          loc.siteId,
                          loc.address,
                          loc.scope,
-                         (loc.providers || []).join(', '),
+                         (projectProviders || []).join(', '),
                          "",
                          "",
                          ""
