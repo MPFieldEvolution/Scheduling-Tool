@@ -729,7 +729,7 @@
         }
 
         // --- Scheduling Logic ---
-        function generateSchedule(overrideMode = false) {
+        async function generateSchedule(overrideMode = false) {
             if (technicians.length === 0 || locations.length === 0) {
                 alert('Please add at least one technician team and one location');
                 return;
@@ -763,6 +763,16 @@
             const today = new Date();
             let weekStart = windowStart ? new Date(windowStart) : new Date(today);
             weekStart.setHours(0,0,0,0);
+
+            // Drive info cache to avoid repeated API calls
+            const driveInfoCache = {};
+            async function getDriveInfoCached(tech, location) {
+                const key = `${tech.address}|${location.address}`;
+                if (driveInfoCache[key] !== undefined) return driveInfoCache[key];
+                const info = await getDriveInfo(tech.address, location.address);
+                driveInfoCache[key] = info;
+                return info;
+            }
 
             // Track tech resource usage per day
             const techUsage = {};
@@ -798,8 +808,19 @@
                         }
                     });
 
-                    // Find best tech for this job
+                    // Try techs in order of shortest drive time (for efficiency strategy)
+                    let techsWithDriveTime = [];
                     for (const tech of availableTechs) {
+                        const driveInfo = await getDriveInfoCached(tech, location);
+                        techsWithDriveTime.push({ tech, driveInfo });
+                    }
+                    
+                    if (strategy === 'efficiency') {
+                        techsWithDriveTime.sort((a, b) => a.driveInfo.minutes - b.driveInfo.minutes);
+                    }
+
+                    // Find best tech for this job
+                    for (const { tech, driveInfo } of techsWithDriveTime) {
                         // Check specialization (skip in override mode)
                         if (!overrideMode && tech.specializations.length > 0 && requiredSpecializations.length > 0) {
                             if (!requiredSpecializations.every(req =>
@@ -870,8 +891,8 @@
                             startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
-                            driveTime: 30, // Simplified drive time
-                            driveMiles: 10, // Simplified drive distance
+                            driveTime: driveInfo.minutes,
+                            driveMiles: driveInfo.miles,
                             team: tech,
                             day: day,
                             overrideParams: overrideParams,
@@ -897,6 +918,8 @@
             lastAssignments = assignments;
 
             displaySchedule(schedule, unassignedLocations, overrideMode);
+            displayMetrics(schedule, unassignedLocations);
+        }e(schedule, unassignedLocations, overrideMode);
             displayMetrics(schedule, unassignedLocations);
         }
 
