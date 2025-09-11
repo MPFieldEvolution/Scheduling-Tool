@@ -254,6 +254,14 @@ window.addEventListener('DOMContentLoaded', function() {
                             <option value="balanced">Balanced Approach</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Install Window Start</label>
+                        <input type="datetime-local" id="installWindowStart" value="">
+                    </div>
+                    <div class="form-group">
+                        <label>Install Window End</label>
+                        <input type="datetime-local" id="installWindowEnd" value="">
+                    </div>
                 </div>
                 <div style="color:#888; font-size:13px; margin-bottom:10px;">
                     <em>Drive time is now automatically estimated based on technician and location addresses.<br>
@@ -763,11 +771,11 @@ window.addEventListener('DOMContentLoaded', function() {
         return totalDuration;
     }
 
-    // --- Helper: Calculate driving time between two addresses using Google Maps Distance Matrix API ---
-    async function getDriveTimeMinutes(origin, destination) {
+    // --- Helper: Calculate driving time and distance using Google Maps Distance Matrix API ---
+    async function getDriveInfo(origin, destination) {
         return new Promise((resolve) => {
-            if (!origin || !destination) return resolve(0);
-            if (!window.google || !window.google.maps || !window.google.maps.DistanceMatrixService) return resolve(30); // fallback
+            if (!origin || !destination) return resolve({minutes: 0, miles: 0});
+            if (!window.google || !window.google.maps || !window.google.maps.DistanceMatrixService) return resolve({minutes: 30, miles: 10});
             const service = new google.maps.DistanceMatrixService();
             service.getDistanceMatrix(
                 {
@@ -779,34 +787,15 @@ window.addEventListener('DOMContentLoaded', function() {
                 (response, status) => {
                     if (status === "OK" && response.rows[0].elements[0].status === "OK") {
                         const duration = response.rows[0].elements[0].duration.value; // seconds
-                        resolve(Math.round(duration / 60));
+                        const distance = response.rows[0].elements[0].distance.value; // meters
+                        const miles = (distance / 1609.34).toFixed(1);
+                        resolve({minutes: Math.round(duration / 60), miles: miles});
                     } else {
-                        resolve(30); // fallback if error
+                        resolve({minutes: 30, miles: 10});
                     }
                 }
             );
         });
-    }
-
-    // --- Schedule Generation ---
-    // Helper: Get the next date for a given weekday after a start date
-    function getNextDateForWeekday(startDate, weekday) {
-        const daysOfWeek = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-        const target = daysOfWeek.indexOf(weekday);
-        const date = new Date(startDate);
-        const diff = (target + 7 - date.getDay()) % 7;
-        date.setDate(date.getDate() + diff);
-        return date;
-    }
-
-    // Automatically calculate buffer: 10% of drive time, minimum 5min, maximum 30min
-    function calculateAutoBuffer(driveTime) {
-        return Math.max(5, Math.min(30, Math.round(driveTime * 0.1 + 5)));
-    }
-
-    // --- Helper: Calculate buffer (always at least 15 minutes) ---
-    function calculateAutoBuffer(/*driveTime*/) {
-        return 15; // Always at least 15 minutes buffer before jobs
     }
 
     // --- Advanced Scheduling Logic ---
@@ -831,23 +820,29 @@ window.addEventListener('DOMContentLoaded', function() {
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         let unassignedLocations = [...sortedLocations];
 
-        // Start from today for scheduling
+        // Get install window from user
+        const installWindowStart = document.getElementById('installWindowStart').value;
+        const installWindowEnd = document.getElementById('installWindowEnd').value;
+        let windowStart = installWindowStart ? new Date(installWindowStart) : null;
+        let windowEnd = installWindowEnd ? new Date(installWindowEnd) : null;
+
+        // Start from today or install window for scheduling
         const today = new Date();
-        let weekStart = new Date(today);
+        let weekStart = windowStart ? new Date(windowStart) : new Date(today);
         weekStart.setHours(0,0,0,0);
         if (weekStart.getDay() !== 1) { // 1 = Monday
-            weekStart = getNextDateForWeekday(today, "Monday");
+            weekStart = getNextDateForWeekday(weekStart, "Monday");
             weekStart.setHours(0,0,0,0);
         }
 
-        // Precompute drive times for all tech teams to all locations (address to address)
-        const driveTimeCache = {};
-        async function getDriveTimeCached(tech, location) {
+        // Precompute drive info for all tech teams to all locations (address to address)
+        const driveInfoCache = {};
+        async function getDriveInfoCached(tech, location) {
             const key = `${tech.address}|${location.address}`;
-            if (driveTimeCache[key] !== undefined) return driveTimeCache[key];
-            const minutes = await getDriveTimeMinutes(tech.address, location.address);
-            driveTimeCache[key] = minutes;
-            return minutes;
+            if (driveInfoCache[key] !== undefined) return driveInfoCache[key];
+            const info = await getDriveInfo(tech.address, location.address);
+            driveInfoCache[key] = info;
+            return info;
         }
 
         // For each day, for each tech, assign jobs
@@ -855,6 +850,8 @@ window.addEventListener('DOMContentLoaded', function() {
             const day = days[dayIdx];
             const dayDate = new Date(weekStart);
             dayDate.setDate(weekStart.getDate() + dayIdx);
+            if (windowStart && dayDate < windowStart) continue;
+            if (windowEnd && dayDate > windowEnd) continue;
             schedule[day] = { date: dayDate, teams: [] };
             const availableTechs = technicians.filter(tech => tech.days.includes(day));
             for (const tech of availableTechs) {
@@ -902,22 +899,29 @@ window.addEventListener('DOMContentLoaded', function() {
                         continue;
                     }
 
-                    // --- Site Availability (basic: check if day is in availability string) ---
+                    // --- Site Availability: Try to match, but if not possible, schedule anyway ---
+                    // (No longer strictly enforced, but preferred)
+                    let canSchedule = true;
                     if (location.availability && location.availability.trim() !== "") {
                         const avail = location.availability.toLowerCase();
                         if (!avail.includes(day.toLowerCase())) {
-                            i++;
-                            continue;
+                            // Try next day, but if no match, allow scheduling anyway
+                            canSchedule = false;
                         }
                     }
 
-                    // --- Drive time and buffer ---
-                    const driveTime = await getDriveTimeCached({address: lastAddress}, location);
+                    // --- Drive info and buffer ---
+                    const driveInfo = await getDriveInfoCached({address: lastAddress}, location);
                     const bufferTime = calculateAutoBuffer(); // Always 15 min
                     const jobDuration = calculateJobDuration(location.scope);
-                    const totalTime = driveTime + jobDuration + bufferTime;
                     const jobStartTime = new Date(currentTime.getTime() + bufferTime * 60000); // buffer before job
                     const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
+
+                    // Only schedule if within install window
+                    if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) {
+                        i++;
+                        continue;
+                    }
 
                     if (jobEndTime <= endTime) {
                         assignments.push({
@@ -925,8 +929,10 @@ window.addEventListener('DOMContentLoaded', function() {
                             startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
-                            driveTime: driveTime,
-                            bufferTime: bufferTime
+                            driveTime: driveInfo.minutes,
+                            driveMiles: driveInfo.miles,
+                            bufferTime: bufferTime,
+                            canSchedule: canSchedule
                         });
                         currentTime = jobEndTime;
                         lastAddress = location.address;
@@ -947,7 +953,7 @@ window.addEventListener('DOMContentLoaded', function() {
         displayMetrics(schedule, unassignedLocations);
     }
 
-    // --- Update displaySchedule to show date, time, drive, and buffer clearly ---
+    // --- Update displaySchedule to show date, time, drive mileage and time ---
     function displaySchedule(schedule, unassigned) {
         const output = document.getElementById('scheduleOutput');
         let html = '<h3>📅 Optimized Installation Schedule</h3>';
@@ -966,7 +972,10 @@ window.addEventListener('DOMContentLoaded', function() {
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
-                        html += `<p>🚗 Est. Drive: ${assignment.driveTime !== undefined ? assignment.driveTime + ' min' : 'N/A'} | 🕒 Buffer: ${assignment.bufferTime} min</p>`;
+                        html += `<p>🚗 Est. Drive: ${assignment.driveMiles} mi, ${assignment.driveTime} min</p>`;
+                        if (!assignment.canSchedule) {
+                            html += `<p style="color:#c33;"><strong>Note:</strong> Scheduled outside customer availability.</p>`;
+                        }
                         html += `</div>`;
                     });
                     html += `</div>`;
