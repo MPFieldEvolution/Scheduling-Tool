@@ -1136,16 +1136,26 @@
             const output = document.getElementById('scheduleOutput');
             let html = '<h3>📅 Optimized Installation Schedule</h3>';
             Object.entries(schedule).forEach(([day, dayObj]) => {
-                const { date, teams } = dayObj;
+                let { date, teams } = dayObj;
+                // --- Fix: Ensure date is a Date object before using toLocaleDateString ---
+                if (date && typeof date === "string") {
+                    // Try to parse ISO string or fallback
+                    let parsed = new Date(date);
+                    if (!isNaN(parsed.getTime())) {
+                        date = parsed;
+                    } else {
+                        date = new Date();
+                    }
+                }
                 if (teams.length > 0) {
                     html += `<div class="schedule-day">`;
-                    html += `<h4>${day} &mdash; ${date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</h4>`;
+                    html += `<h4>${day} &mdash; ${date instanceof Date && !isNaN(date) ? date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : day}</h4>`;
                     teams.forEach(teamSchedule => {
                         html += `<div class="assignment">`;
                         html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
                         teamSchedule.assignments.forEach(assignment => {
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
-                            html += `<span class="tech-tag">${assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+                            html += `<span class="tech-tag">${assignment.startDateTime instanceof Date ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.startDateTime}</span> - <span class="tech-tag">${assignment.endDateTime instanceof Date ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.endDateTime}</span>`;
                             html += `<span class="location-tag">${assignment.location.siteId}</span>`;
                             html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                             html += `<p>📋 ${assignment.location.scope}</p>`;
