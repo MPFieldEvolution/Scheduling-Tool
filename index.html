@@ -288,6 +288,10 @@
         // Add a global to store last unassigned locations
         let lastUnassignedLocations = [];
 
+        // Store last generated schedule and assignments for override
+        let lastSchedule = {};
+        let lastAssignments = [];
+
         // --- Persistent Storage ---
         function saveAllData() {
             localStorage.setItem('technicians', JSON.stringify(technicians));
@@ -828,6 +832,7 @@
             const schedule = {};
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             let unassignedLocations = [];
+            let assignments = [];
 
             // Get install window from user
             const installWindowStart = document.getElementById('installWindowStart').value;
@@ -835,12 +840,10 @@
             let windowStart = installWindowStart ? new Date(installWindowStart) : null;
             let windowEnd = installWindowEnd ? new Date(installWindowEnd) : null;
 
-            // Start from today or install window for scheduling
             const today = new Date();
             let weekStart = windowStart ? new Date(windowStart) : new Date(today);
             weekStart.setHours(0,0,0,0);
 
-            // Precompute drive info for all tech teams to all locations (address to address)
             const driveInfoCache = {};
             async function getDriveInfoCached(tech, location) {
                 const key = `${tech.address}|${location.address}`;
@@ -850,16 +853,11 @@
                 return info;
             }
 
-            // Track which locations have been scheduled
-            const scheduledLocationIds = new Set();
-
-            // For each location, try to schedule it on any valid day with any available tech
             for (const location of sortedLocations) {
                 let scheduled = false;
                 let availableDays = [];
                 let locationStartHour = 8, locationStartMin = 0, locationEndHour = 17, locationEndMin = 0;
 
-                // Parse location availability for days and time
                 if (location.availability && location.availability.trim() !== "") {
                     for (const day of days) {
                         if (location.availability.toLowerCase().includes(day.toLowerCase())) {
@@ -943,9 +941,8 @@
                         const endTime = new Date(dayDate);
                         endTime.setHours(endHour, endMin, 0, 0);
 
-                        // Schedule job at earliest available time
-                        const bufferTime = 15; // Always 15 min
-                        const jobStartTime = new Date(startTime.getTime() + bufferTime * 60000);
+                        // Installation starts at tech's available time, not after driving
+                        const jobStartTime = new Date(startTime);
                         const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
                         // Only schedule if within tech's and location's working hours and install window
@@ -962,7 +959,10 @@
                                 endDateTime: new Date(jobEndTime),
                                 duration: jobDuration,
                                 driveTime: driveInfo.minutes,
-                                driveMiles: driveInfo.miles
+                                driveMiles: driveInfo.miles,
+                                team: tech,
+                                day: day,
+                                overrideParams: []
                             };
                         }
                     }
@@ -983,7 +983,7 @@
                             schedule[day].teams.push(teamEntry);
                         }
                         teamEntry.assignments.push(bestAssignment);
-                        scheduledLocationIds.add(location.id);
+                        assignments.push(bestAssignment);
                         scheduled = true;
                         break; // Stop after scheduling this location
                     }
@@ -993,7 +993,9 @@
                 }
             }
 
-            lastUnassignedLocations = unassignedLocations; // Save for override
+            lastUnassignedLocations = unassignedLocations;
+            lastSchedule = schedule;
+            lastAssignments = assignments;
 
             displaySchedule(schedule, unassignedLocations, false);
             displayMetrics(schedule, unassignedLocations);
@@ -1005,7 +1007,7 @@
             }
         }
 
-        // --- Override Scheduling for unassigned locations only ---
+        // --- Override Scheduling for unassigned locations only, showing all jobs ---
         async function overrideUnassignedSchedule() {
             if (!lastUnassignedLocations || lastUnassignedLocations.length === 0) {
                 alert('No unassigned locations to override.');
@@ -1013,7 +1015,6 @@
             }
             document.getElementById('scheduleOutput').innerHTML = '<h3>Overriding parameters for unassigned locations...</h3>';
 
-            // Get install window from user
             const installWindowStart = document.getElementById('installWindowStart').value;
             const installWindowEnd = document.getElementById('installWindowEnd').value;
             let windowStart = installWindowStart ? new Date(installWindowStart) : null;
@@ -1024,10 +1025,6 @@
             weekStart.setHours(0,0,0,0);
 
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-            const schedule = {};
-            let overrideAssignments = [];
-
-            // Precompute drive info for all tech teams to all locations (address to address)
             const driveInfoCache = {};
             async function getDriveInfoCached(tech, location) {
                 const key = `${tech.address}|${location.address}`;
@@ -1036,6 +1033,10 @@
                 driveInfoCache[key] = info;
                 return info;
             }
+
+            // Start with previous assignments
+            let allAssignments = [...lastAssignments];
+            let schedule = JSON.parse(JSON.stringify(lastSchedule)); // Deep copy
 
             for (const location of lastUnassignedLocations) {
                 let bestTech = null, bestDrive = null, bestAssignment = null, bestDay = null, overrideParams = [];
@@ -1059,12 +1060,11 @@
                         const endTime = new Date(dayDate);
                         endTime.setHours(endHour, endMin, 0, 0);
 
-                        const bufferTime = 15;
-                        const jobStartTime = new Date(startTime.getTime() + bufferTime * 60000);
+                        // Installation starts at tech's available time, not after driving
+                        const jobStartTime = new Date(startTime);
                         const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
                         let paramsBroken = [];
-                        // Check specialization and tech count
                         const scopeItems = parseScope(location.scope);
                         for (const item of scopeItems) {
                             const scopeTemplate = scopes.find(s =>
@@ -1088,7 +1088,6 @@
                         }
                         if (jobEndTime > endTime) paramsBroken.push("Time Window");
                         if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) paramsBroken.push("Install Window");
-                        // Location availability is always broken in override
                         paramsBroken.push("Location Availability");
 
                         if (!bestDrive || driveInfo.minutes < bestDrive.minutes) {
@@ -1101,6 +1100,8 @@
                                 duration: jobDuration,
                                 driveTime: driveInfo.minutes,
                                 driveMiles: driveInfo.miles,
+                                team: tech,
+                                day: day,
                                 overrideParams: paramsBroken
                             };
                             bestDay = day;
@@ -1109,6 +1110,7 @@
                     }
                 }
                 if (bestTech && bestAssignment && bestDay) {
+                    // Add to schedule
                     if (!schedule[bestDay]) schedule[bestDay] = { date: null, teams: [] };
                     if (!schedule[bestDay].date) {
                         const dayDate = new Date(weekStart);
@@ -1121,16 +1123,15 @@
                         schedule[bestDay].teams.push(teamEntry);
                     }
                     teamEntry.assignments.push(bestAssignment);
-                    overrideAssignments.push(bestAssignment);
+                    allAssignments.push(bestAssignment);
                 }
             }
 
-            // Show only override assignments for unassigned locations
             displaySchedule(schedule, [], true);
             displayMetrics(schedule, []);
         }
 
-        // --- Update displaySchedule to show override reasons if overrideMode is true ---
+        // --- Update displaySchedule to show all jobs and override reasons ---
         function displaySchedule(schedule, unassigned, overrideMode = false) {
             const output = document.getElementById('scheduleOutput');
             let html = '<h3>📅 Optimized Installation Schedule</h3>';
