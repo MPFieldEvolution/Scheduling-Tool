@@ -528,6 +528,32 @@
             const savedTab = localStorage.getItem('currentTab') || 'technicians';
             setCurrentTab(savedTab);
         });
+        
+        window.addEventListener('DOMContentLoaded', function() {
+            // Technician Address Autocomplete
+            if (window.google && window.google.maps && window.google.maps.places) {
+                const techInput = document.getElementById('techAddress');
+                const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
+                techAutocomplete.setFields(['formatted_address']);
+                techAutocomplete.addListener('place_changed', function() {
+                    const place = techAutocomplete.getPlace();
+                    if (place && place.formatted_address) {
+                        techInput.value = place.formatted_address;
+                    }
+                });
+
+                // Location Address Autocomplete
+                const locInput = document.getElementById('locationAddress');
+                const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
+                locAutocomplete.setFields(['formatted_address']);
+                locAutocomplete.addListener('place_changed', function() {
+                    const place = locAutocomplete.getPlace();
+                    if (place && place.formatted_address) {
+                        locInput.value = place.formatted_address;
+                    }
+                });
+            }
+        });
 
         // --- Scope List always updates ---
         function updateScopeList() {
@@ -823,6 +849,7 @@
         }
         function updateScopeList() {
             const list = document.getElementById('scopeList');
+            if (!list) return;
             if (scopes.length === 0) {
                 list.innerHTML = '<p style="color:#888;">No scope templates defined yet.</p>';
                 return;
@@ -1443,7 +1470,45 @@
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
             XLSX.writeFile(wb, filename);
         }
+// Place this at the end of your <script> section, after all other code
 
+// --- Google Places Autocomplete for Technician Address and Full Address ---
+function setupAddressAutocomplete() {
+    // Wait until Google Maps API and DOM elements are ready
+    if (
+        window.google &&
+        window.google.maps &&
+        window.google.maps.places &&
+        document.getElementById('techAddress') &&
+        document.getElementById('locationAddress')
+    ) {
+        // Technician Address Autocomplete
+        const techInput = document.getElementById('techAddress');
+        const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
+        techAutocomplete.setFields(['formatted_address', 'geometry']);
+        techAutocomplete.addListener('place_changed', function() {
+            const place = techAutocomplete.getPlace();
+            if (place && place.formatted_address) {
+                techInput.value = place.formatted_address;
+            }
+        });
+
+        // Location Address Autocomplete
+        const locInput = document.getElementById('locationAddress');
+        const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
+        locAutocomplete.setFields(['formatted_address', 'geometry']);
+        locAutocomplete.addListener('place_changed', function() {
+            const place = locAutocomplete.getPlace();
+            if (place && place.formatted_address) {
+                locInput.value = place.formatted_address;
+            }
+        });
+    } else {
+        // Try again after a short delay if not ready
+        setTimeout(setupAddressAutocomplete, 300);
+    }
+}
+window.addEventListener('DOMContentLoaded', setupAddressAutocomplete);
     </script>
 </body>
 </html>
