@@ -10,7 +10,7 @@
         .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
         h1 { color: #ff0000; margin-bottom: 30px; text-align: center; font-size: 2.5em; font-family: Arial, Helvetica, sans-serif; background: none; -webkit-background-clip: unset; background-clip: unset; -webkit-text-fill-color: unset;}
         .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0;}
-        .tab { padding: 12px 24px; background: none; border: none, cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
+        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
         .tab.active { color: #ff0000; border-bottom-color: #ff0000; font-weight: 600;}
         .tab:hover { color: #ff0000;}
         .section { display: none; animation: fadeIn 0.5s;}
@@ -47,10 +47,7 @@
         .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
         .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
     </style>
-    <!-- Google Maps JS API: Use async & defer for best performance -->
-    <script
-      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"
-      async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
     <script>
     // Google Places Autocomplete for address fields
     window.addEventListener('DOMContentLoaded', function() {
@@ -270,9 +267,7 @@
                 <div class="card-header">
                     <h3 class="card-title">Current Scope Templates</h3>
                 </div>
-                <div id="scopeList" class="scope-types">
-                    <!-- Will be filled by JS -->
-                </div>
+                <div id="scopeList" class="scope-types"></div>
             </div>
         </div>
 
@@ -311,7 +306,6 @@
             </div>
         </div>
     </div>
-
     <script>
     // --- Data and UI Logic ---
     let technicians = [];
