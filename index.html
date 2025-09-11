@@ -255,7 +255,7 @@
                     <h3 class="card-title">Schedule Parameters</h3>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label>Average Drive Time (minutes)</label>
                         <input type="number" id="driveTime" value="30" min="0">
                     </div>
@@ -271,6 +271,9 @@
                             <option value="balanced">Balanced Approach</option>
                         </select>
                     </div>
+                </div>
+                <div style="color:#888; font-size:13px; margin-bottom:10px;">
+                    <em>Drive time is now automatically estimated based on technician and location addresses.</em>
                 </div>
                 <button class="btn" onclick="generateSchedule()">🚀 Generate Optimal Schedule</button>
             </div>
@@ -650,12 +653,11 @@
         });
         return totalDuration;
     }
-    function generateSchedule() {
+    async function generateSchedule() {
         if (technicians.length === 0 || locations.length === 0) {
             alert('Please add at least one technician team and one location');
             return;
         }
-        const driveTime = parseInt(document.getElementById('driveTime').value);
         const bufferTime = parseInt(document.getElementById('bufferTime').value);
         const strategy = document.getElementById('optimizationStrategy').value;
         let sortedLocations = [...locations];
@@ -666,17 +668,32 @@
         const schedule = {};
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         let unassignedLocations = [...sortedLocations];
-        days.forEach(day => {
+
+        // Precompute drive times for all tech teams to all locations (address to address)
+        const driveTimeCache = {};
+        async function getDriveTimeCached(tech, location) {
+            const key = `${tech.address}|${location.address}`;
+            if (driveTimeCache[key] !== undefined) return driveTimeCache[key];
+            const minutes = await getDriveTimeMinutes(tech.address, location.address);
+            driveTimeCache[key] = minutes;
+            return minutes;
+        }
+
+        // For each day, for each tech, assign jobs
+        for (const day of days) {
             schedule[day] = [];
             const availableTechs = technicians.filter(tech => tech.days.includes(day));
-            availableTechs.forEach(tech => {
+            for (const tech of availableTechs) {
                 const startTime = new Date(`2024-01-01T${tech.startTime}`);
                 const endTime = new Date(`2024-01-01T${tech.endTime}`);
                 let currentTime = new Date(startTime);
+                let lastAddress = tech.address || tech.location || ""; // fallback if no address
                 const assignments = [];
                 let i = 0;
                 while (i < unassignedLocations.length && currentTime < endTime) {
                     const location = unassignedLocations[i];
+                    // Calculate drive time from last job (or tech base) to this location
+                    const driveTime = await getDriveTimeCached({address: lastAddress}, location);
                     const jobDuration = calculateJobDuration(location.scope);
                     const totalTime = driveTime + jobDuration + bufferTime;
                     const jobEndTime = new Date(currentTime.getTime() + totalTime * 60000);
@@ -685,9 +702,11 @@
                             location: location,
                             startTime: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                             endTime: jobEndTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                            duration: jobDuration
+                            duration: jobDuration,
+                            driveTime: driveTime
                         });
                         currentTime = jobEndTime;
+                        lastAddress = location.address;
                         unassignedLocations.splice(i, 1);
                     } else {
                         i++;
@@ -699,8 +718,8 @@
                         assignments: assignments
                     });
                 }
-            });
-        });
+            }
+        }
         displaySchedule(schedule, unassignedLocations);
         displayMetrics(schedule, unassignedLocations);
     }
@@ -722,6 +741,7 @@
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
+                        html += `<p>🚗 Est. Drive: ${assignment.driveTime !== undefined ? assignment.driveTime + ' min' : 'N/A'}</p>`;
                         html += `</div>`;
                     });
                     html += `</div>`;
@@ -898,6 +918,31 @@
             </div>
         `).join('');
         updateScopeTemplateSelect();
+    }
+
+    // --- Helper: Calculate driving time between two addresses using Google Maps Distance Matrix API ---
+    async function getDriveTimeMinutes(origin, destination) {
+        return new Promise((resolve) => {
+            if (!origin || !destination) return resolve(0);
+            if (!window.google || !window.google.maps || !window.google.maps.DistanceMatrixService) return resolve(30); // fallback
+            const service = new google.maps.DistanceMatrixService();
+            service.getDistanceMatrix(
+                {
+                    origins: [origin],
+                    destinations: [destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.IMPERIAL,
+                },
+                (response, status) => {
+                    if (status === "OK" && response.rows[0].elements[0].status === "OK") {
+                        const duration = response.rows[0].elements[0].duration.value; // seconds
+                        resolve(Math.round(duration / 60));
+                    } else {
+                        resolve(30); // fallback if error
+                    }
+                }
+            );
+        });
     }
     </script>
 </body>
