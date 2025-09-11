@@ -1173,8 +1173,11 @@ window.addEventListener('DOMContentLoaded', function() {
                         html += `<div class="assignment">`;
                         html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
                         teamSchedule.assignments.forEach(assignment => {
+                            const startTime = assignment.startDateTime instanceof Date ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : assignment.startDateTime;
+                            const endTime = assignment.endDateTime instanceof Date ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : assignment.endDateTime;
+                            
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
-                            html += `<span class="tech-tag">${assignment.startDateTime instanceof Date ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.startDateTime}</span> - <span class="tech-tag">${assignment.endDateTime instanceof Date ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : assignment.endDateTime}</span>`;
+                            html += `<span class="tech-tag">${startTime}</span> - <span class="tech-tag">${endTime}</span>`;
                             html += `<span class="location-tag">${assignment.location.siteId}</span>`;
                             html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                             html += `<p>📋 ${assignment.location.scope}</p>`;
