@@ -622,37 +622,17 @@
     }
 
     // --- Schedule Generation ---
-    function parseScope(scopeString) {
-        const items = [];
-        const parts = scopeString.split(',');
-        parts.forEach(part => {
-            const match = part.trim().match(/(\d+)\s*(.+)/);
-            if (match) {
-                const [_, quantity, type] = match;
-                items.push({
-                    quantity: parseInt(quantity),
-                    type: type.trim()
-                });
-            }
-        });
-        return items;
+    // Helper: Get the next date for a given weekday after a start date
+    function getNextDateForWeekday(startDate, weekday) {
+        // weekday: "Monday", "Tuesday", etc.
+        const daysOfWeek = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        const target = daysOfWeek.indexOf(weekday);
+        const date = new Date(startDate);
+        const diff = (target + 7 - date.getDay()) % 7;
+        date.setDate(date.getDate() + diff);
+        return date;
     }
-    function calculateJobDuration(scopeString) {
-        const scopeItems = parseScope(scopeString);
-        let totalDuration = 0;
-        scopeItems.forEach(item => {
-            const scopeTemplate = scopes.find(s =>
-                item.type.toLowerCase().includes(s.type.toLowerCase()) ||
-                s.type.toLowerCase().includes(item.type.toLowerCase())
-            );
-            if (scopeTemplate) {
-                totalDuration += item.quantity * scopeTemplate.duration * scopeTemplate.complexity;
-            } else {
-                totalDuration += item.quantity * 30; // fallback
-            }
-        });
-        return totalDuration;
-    }
+
     async function generateSchedule() {
         if (technicians.length === 0 || locations.length === 0) {
             alert('Please add at least one technician team and one location');
@@ -669,6 +649,16 @@
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         let unassignedLocations = [...sortedLocations];
 
+        // Start from today for scheduling
+        const today = new Date();
+        // Find the next Monday (or today if today is Monday)
+        let weekStart = new Date(today);
+        weekStart.setHours(0,0,0,0);
+        if (weekStart.getDay() !== 1) { // 1 = Monday
+            weekStart = getNextDateForWeekday(today, "Monday");
+            weekStart.setHours(0,0,0,0);
+        }
+
         // Precompute drive times for all tech teams to all locations (address to address)
         const driveTimeCache = {};
         async function getDriveTimeCached(tech, location) {
@@ -680,12 +670,22 @@
         }
 
         // For each day, for each tech, assign jobs
-        for (const day of days) {
-            schedule[day] = [];
+        for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
+            const day = days[dayIdx];
+            // Calculate the actual date for this day in the week
+            const dayDate = new Date(weekStart);
+            dayDate.setDate(weekStart.getDate() + dayIdx);
+            schedule[day] = { date: dayDate, teams: [] };
             const availableTechs = technicians.filter(tech => tech.days.includes(day));
             for (const tech of availableTechs) {
-                const startTime = new Date(`2024-01-01T${tech.startTime}`);
-                const endTime = new Date(`2024-01-01T${tech.endTime}`);
+                // Use the actual date for this day
+                const startTime = new Date(dayDate);
+                const [startHour, startMin] = tech.startTime.split(':').map(Number);
+                startTime.setHours(startHour, startMin, 0, 0);
+                const endTime = new Date(dayDate);
+                const [endHour, endMin] = tech.endTime.split(':').map(Number);
+                endTime.setHours(endHour, endMin, 0, 0);
+
                 let currentTime = new Date(startTime);
                 let lastAddress = tech.address || tech.location || ""; // fallback if no address
                 const assignments = [];
@@ -700,8 +700,8 @@
                     if (jobEndTime <= endTime) {
                         assignments.push({
                             location: location,
-                            startTime: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                            endTime: jobEndTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                            startDateTime: new Date(currentTime),
+                            endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
                             driveTime: driveTime
                         });
@@ -713,7 +713,7 @@
                     }
                 }
                 if (assignments.length > 0) {
-                    schedule[day].push({
+                    schedule[day].teams.push({
                         team: tech,
                         assignments: assignments
                     });
@@ -723,20 +723,22 @@
         displaySchedule(schedule, unassignedLocations);
         displayMetrics(schedule, unassignedLocations);
     }
-    
+
+    // --- Update displaySchedule to show date and time clearly ---
     function displaySchedule(schedule, unassigned) {
         const output = document.getElementById('scheduleOutput');
         let html = '<h3>📅 Optimized Installation Schedule</h3>';
-        Object.entries(schedule).forEach(([day, teams]) => {
+        Object.entries(schedule).forEach(([day, dayObj]) => {
+            const { date, teams } = dayObj;
             if (teams.length > 0) {
                 html += `<div class="schedule-day">`;
-                html += `<h4>${day}</h4>`;
+                html += `<h4>${day} &mdash; ${date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</h4>`;
                 teams.forEach(teamSchedule => {
                     html += `<div class="assignment">`;
                     html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
                     teamSchedule.assignments.forEach(assignment => {
                         html += `<div style="margin-left: 20px; margin-top: 10px;">`;
-                        html += `<span class="tech-tag">${assignment.startTime} - ${assignment.endTime}</span>`;
+                        html += `<span class="tech-tag">${assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
                         html += `<span class="location-tag">${assignment.location.siteId}</span>`;
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
@@ -760,7 +762,8 @@
         }
         output.innerHTML = html;
     }
-    
+
+    // --- Metrics and Reporting ---
     function displayMetrics(schedule, unassigned) {
         const metrics = document.getElementById('metrics');
         let totalJobs = 0;
