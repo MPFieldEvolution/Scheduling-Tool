@@ -85,42 +85,42 @@
                 </div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Base Location</label>
-                        <input type="text" id="techLocation" placeholder="e.g., Downtown Hub">
+                        <label for="techLocation">Base Location</label>
+                        <input type="text" id="techLocation" name="techLocation" placeholder="e.g., Downtown Hub">
                     </div>
                     <div class="form-group">
                         <label for="techAddress">Technician Address</label>
                         <input type="text" id="techAddress" name="techAddress" placeholder="e.g., 100 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
                     </div>
                     <div class="form-group">
-                        <label>Number of Technicians</label>
-                        <input type="number" id="techCount" min="1" value="1">
+                        <label for="techCount">Number of Technicians</label>
+                        <input type="number" id="techCount" name="techCount" min="1" value="1">
                     </div>
                     <div class="form-group">
-                        <label>Team Name/ID</label>
-                        <input type="text" id="techTeamName" placeholder="e.g., Team Alpha">
+                        <label for="techTeamName">Team Name/ID</label>
+                        <input type="text" id="techTeamName" name="techTeamName" placeholder="e.g., Team Alpha">
                     </div>
                     <div class="form-group">
                         <label>Availability (Days)</label>
                         <div id="techDaysCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
-                            <label><input type="checkbox" value="Monday" checked> Monday</label>
-                            <label><input type="checkbox" value="Tuesday" checked> Tuesday</label>
-                            <label><input type="checkbox" value="Wednesday" checked> Wednesday</label>
-                            <label><input type="checkbox" value="Thursday" checked> Thursday</label>
-                            <label><input type="checkbox" value="Friday" checked> Friday</label>
-                            <label><input type="checkbox" value="Saturday"> Saturday</label>
-                            <label><input type="checkbox" value="Sunday"> Sunday</label>
+                            <label for="techDayMonday"><input type="checkbox" id="techDayMonday" name="techDay" value="Monday" checked> Monday</label>
+                            <label for="techDayTuesday"><input type="checkbox" id="techDayTuesday" name="techDay" value="Tuesday" checked> Tuesday</label>
+                            <label for="techDayWednesday"><input type="checkbox" id="techDayWednesday" name="techDay" value="Wednesday" checked> Wednesday</label>
+                            <label for="techDayThursday"><input type="checkbox" id="techDayThursday" name="techDay" value="Thursday" checked> Thursday</label>
+                            <label for="techDayFriday"><input type="checkbox" id="techDayFriday" name="techDay" value="Friday" checked> Friday</label>
+                            <label for="techDaySaturday"><input type="checkbox" id="techDaySaturday" name="techDay" value="Saturday"> Saturday</label>
+                            <label for="techDaySunday"><input type="checkbox" id="techDaySunday" name="techDay" value="Sunday"> Sunday</label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Working Hours</label>
+                        <label for="techStartTime">Working Hours</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="time" id="techStartTime" value="08:00">
-                            <input type="time" id="techEndTime" value="17:00">
+                            <input type="time" id="techStartTime" name="techStartTime" value="08:00">
+                            <input type="time" id="techEndTime" name="techEndTime" value="17:00">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Providers (Certifications)</label>
+                        <label for="techSpecializations">Providers (Certifications)</label>
                         <div id="techProviderCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
                             <!-- Provider checkboxes will be inserted here by JS -->
                         </div>
@@ -139,7 +139,7 @@
                     <h3 class="card-title">Import Technician Data from CSV</h3>
                 </div>
                 <p style="margin-bottom: 10px; font-size: 14px; color: #555;">Paste comma-separated data below. Format: `Team Name,Base Location,Technician Address,Number of Technicians,Availability(Mon;Tue;...),Working Hours(08:00-17:00),Providers(Motive;Lytx;...)`</p>
-                <textarea id="csvData" rows="5" placeholder="Paste your CSV data here..."></textarea>
+                <textarea id="csvData" name="csvData" rows="5" placeholder="Paste your CSV data here..."></textarea>
                 <button class="btn" style="margin-top: 10px;" onclick="importTechnicians()">Load Technicians</button>
             </div>
         </div>
@@ -160,24 +160,24 @@
                 </div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Site ID</label>
-                        <input type="text" id="locationId" placeholder="e.g., SITE-001">
+                        <label for="locationId">Site ID</label>
+                        <input type="text" id="locationId" name="locationId" placeholder="e.g., SITE-001">
                     </div>
                     <div class="form-group">
-                        <label>Site Name</label>
-                        <input type="text" id="locationName" placeholder="e.g., Main Street Branch">
+                        <label for="locationName">Site Name</label>
+                        <input type="text" id="locationName" name="locationName" placeholder="e.g., Main Street Branch">
                     </div>
                     <div class="form-group">
                         <label for="locationAddress">Full Address</label>
                         <input type="text" id="locationAddress" name="locationAddress" placeholder="123 Main St, City, State ZIP" autocomplete="off" style="width:100%;" />
                     </div>
                     <div class="form-group">
-                        <label>Scope of Work</label>
-                        <input type="text" id="locationScope" placeholder="e.g., 15 VG + DCs, 5 PAs">
+                        <label for="locationScope">Scope of Work</label>
+                        <input type="text" id="locationScope" name="locationScope" placeholder="e.g., 15 VG + DCs, 5 PAs">
                     </div>
                     <div class="form-group">
-                        <label>Priority Level</label>
-                        <select id="locationPriority">
+                        <label for="locationPriority">Priority Level</label>
+                        <select id="locationPriority" name="locationPriority">
                             <option value="High">High</option>
                             <option value="Medium" selected>Medium</option>
                             <option value="Low">Low</option>
@@ -186,29 +186,29 @@
                     <div class="form-group">
                         <label>Site Availability (Days)</label>
                         <div id="locationDayCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
-                            <label><input type="checkbox" value="Monday" checked> Monday</label>
-                            <label><input type="checkbox" value="Tuesday" checked> Tuesday</label>
-                            <label><input type="checkbox" value="Wednesday" checked> Wednesday</label>
-                            <label><input type="checkbox" value="Thursday" checked> Thursday</label>
-                            <label><input type="checkbox" value="Friday" checked> Friday</label>
-                            <label><input type="checkbox" value="Saturday"> Saturday</label>
-                            <label><input type="checkbox" value="Sunday"> Sunday</label>
+                            <label for="locDayMonday"><input type="checkbox" id="locDayMonday" name="locDay" value="Monday" checked> Monday</label>
+                            <label for="locDayTuesday"><input type="checkbox" id="locDayTuesday" name="locDay" value="Tuesday" checked> Tuesday</label>
+                            <label for="locDayWednesday"><input type="checkbox" id="locDayWednesday" name="locDay" value="Wednesday" checked> Wednesday</label>
+                            <label for="locDayThursday"><input type="checkbox" id="locDayThursday" name="locDay" value="Thursday" checked> Thursday</label>
+                            <label for="locDayFriday"><input type="checkbox" id="locDayFriday" name="locDay" value="Friday" checked> Friday</label>
+                            <label for="locDaySaturday"><input type="checkbox" id="locDaySaturday" name="locDay" value="Saturday"> Saturday</label>
+                            <label for="locDaySunday"><input type="checkbox" id="locDaySunday" name="locDay" value="Sunday"> Sunday</label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Site Hours</label>
+                        <label for="locationStartTime">Site Hours</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="time" id="locationStartTime" value="09:00">
-                            <input type="time" id="locationEndTime" value="17:00">
+                            <input type="time" id="locationStartTime" name="locationStartTime" value="09:00">
+                            <input type="time" id="locationEndTime" name="locationEndTime" value="17:00">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Contact Person</label>
-                        <input type="text" id="locationContact" placeholder="Name and phone">
+                        <label for="locationContact">Contact Person</label>
+                        <input type="text" id="locationContact" name="locationContact" placeholder="Name and phone">
                     </div>
                     <div class="form-group">
-                        <label>Special Requirements</label>
-                        <textarea id="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
+                        <label for="locationNotes">Special Requirements</label>
+                        <textarea id="locationNotes" name="locationNotes" placeholder="Access codes, parking info, etc."></textarea>
                     </div>
                 </div>
                 <button class="btn" onclick="addLocation()">Add Location</button>
@@ -229,20 +229,20 @@
                 </div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Scope Type</label>
-                        <input type="text" id="scopeType" placeholder="e.g., VG, DC, PA">
+                        <label for="scopeType">Scope Type</label>
+                        <input type="text" id="scopeType" name="scopeType" placeholder="e.g., VG, DC, PA">
                     </div>
                     <div class="form-group">
-                        <label>Duration per Unit (minutes)</label>
-                        <input type="number" id="scopeDuration" min="1" placeholder="e.g., 30">
+                        <label for="scopeDuration">Duration per Unit (minutes)</label>
+                        <input type="number" id="scopeDuration" name="scopeDuration" min="1" placeholder="e.g., 30">
                     </div>
                     <div class="form-group">
-                        <label>Required Tech Count</label>
-                        <input type="number" id="scopeTechCount" min="1" value="1">
+                        <label for="scopeTechCount">Required Tech Count</label>
+                        <input type="number" id="scopeTechCount" name="scopeTechCount" min="1" value="1">
                     </div>
                     <div class="form-group">
-                        <label>Complexity Factor</label>
-                        <select id="scopeComplexity">
+                        <label for="scopeComplexity">Complexity Factor</label>
+                        <select id="scopeComplexity" name="scopeComplexity">
                             <option value="1">Simple (1x)</option>
                             <option value="1.5">Moderate (1.5x)</option>
                             <option value="2">Complex (2x)</option>
@@ -267,24 +267,24 @@
                 </div>
                 <div class="form-grid">
                     <div class="form-group" style="display:none">
-                        <label>Average Drive Time (minutes)</label>
-                        <input type="number" id="driveTime" value="30" min="0">
+                        <label for="driveTime">Average Drive Time (minutes)</label>
+                        <input type="number" id="driveTime" name="driveTime" value="30" min="0">
                     </div>
                     <div class="form-group">
-                        <label>Optimization Strategy</label>
-                        <select id="optimizationStrategy">
+                        <label for="optimizationStrategy">Optimization Strategy</label>
+                        <select id="optimizationStrategy" name="optimizationStrategy">
                             <option value="efficiency">Maximum Efficiency</option>
                             <option value="priority">Priority First</option>
                             <option value="balanced">Balanced Approach</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Install Window Start</label>
-                        <input type="date" id="installWindowStart" value="">
+                        <label for="installWindowStart">Install Window Start</label>
+                        <input type="date" id="installWindowStart" name="installWindowStart" value="">
                     </div>
                     <div class="form-group">
-                        <label>Install Window End</label>
-                        <input type="date" id="installWindowEnd" value="">
+                        <label for="installWindowEnd">Install Window End</label>
+                        <input type="date" id="installWindowEnd" name="installWindowEnd" value="">
                     </div>
                 </div>
                 <div style="color:#888; font-size:13px; margin-bottom:10px;">
@@ -458,10 +458,10 @@
             const locationContainer = document.getElementById('projectProviderCheckboxes');
             
             if (techContainer) {
-                techContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('');
+                techContainer.innerHTML = providers.map(p => `<label for="techProvider${p}"><input type="checkbox" id="techProvider${p}" name="techProvider" value="${p}"> ${p}</label>`).join('');
             }
             if (locationContainer) {
-                locationContainer.innerHTML = providers.map(p => `<label><input type="checkbox" value="${p}" onchange="updateProjectProviders()"> ${p}</label>`).join('');
+                locationContainer.innerHTML = providers.map(p => `<label for="projectProvider${p}"><input type="checkbox" id="projectProvider${p}" name="projectProvider" value="${p}" onchange="updateProjectProviders()"> ${p}</label>`).join('');
                 setSelectedProviders('projectProviderCheckboxes', projectProviders);
             }
         }
@@ -1143,10 +1143,13 @@
                                 }
                                 
                                 location.remainingDuration -= workToday;
+                                location.scope = `${location.remainingDuration} min remaining`;
 
                                 if (location.remainingDuration <= 0) {
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
+                                    location.scope = location.originalScope;
+                                    delete location.originalScope;
                                 } else {
                                     locationsToRetry.push(location);
                                     scheduledThisLocation = true;
@@ -1159,10 +1162,17 @@
                         locationsToRetry.push(location);
                     }
                 }
-                currentDate.setDate(currentDate.getDate() + 1);
+                
+                if (!didScheduleThisDay && locationsToRetry.length === currentDayQueue.length) {
+                    unassignedLocations = [...locationsToRetry];
+                    locationsToRetry = [];
+                } else if (didScheduleThisDay) {
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
             }
-            
-            unassignedLocations = locationsToRetry.filter(loc => loc.remainingDuration > 0);
+
+            lastUnassignedLocations = unassignedLocations;
+            lastSchedule = schedule;
             
             // Clean up temporary properties before saving
             locations.forEach(loc => {
@@ -1245,7 +1255,7 @@
                             continue;
                         }
                         
-                        const scopeItems = parseScope(location.scope);
+                        const scopeItems = parseScope(location.originalScope || location.scope);
                         let requiredTechs = 0;
                         scopeItems.forEach(item => {
                             const scopeTemplate = scopes.find(s => s.type.toLowerCase().includes(item.type.toLowerCase()));
