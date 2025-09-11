@@ -54,16 +54,13 @@
     <script>
     // Google Places Autocomplete for address fields
     window.addEventListener('DOMContentLoaded', function() {
-        // Use PlaceAutocompleteElement if available (for new customers)
         function useModernAutocomplete(inputId) {
             const input = document.getElementById(inputId);
             if (!input) return;
-            // Remove any previous autocomplete element
             if (input._autocompleteElement) {
                 input._autocompleteElement.remove();
                 input._autocompleteElement = null;
             }
-            // Only use if PlaceAutocompleteElement is available
             if (window.google && google.maps && google.maps.places && google.maps.places.PlaceAutocompleteElement) {
                 const el = document.createElement('gmpx-place-autocomplete');
                 el.setAttribute('input-element', input);
@@ -90,7 +87,6 @@
             }
         }
         function attachAutocomplete(inputId) {
-            // Try modern first, fallback to legacy
             if (window.google && google.maps && google.maps.places && google.maps.places.PlaceAutocompleteElement) {
                 useModernAutocomplete(inputId);
             } else {
@@ -274,7 +270,9 @@
                 <div class="card-header">
                     <h3 class="card-title">Current Scope Templates</h3>
                 </div>
-                <div id="scopeList" class="scope-types"></div>
+                <div id="scopeList" class="scope-types">
+                    <!-- Will be filled by JS -->
+                </div>
             </div>
         </div>
 
@@ -1014,6 +1012,10 @@ window.addEventListener('DOMContentLoaded', function() {
     // Restore tab
     const savedTab = localStorage.getItem('currentTab') || 'technicians';
     setCurrentTab(savedTab);
+    // Ensure scope and schedule sections are populated
+    updateScopeList();
+    document.getElementById('scheduleOutput').innerHTML = '<h3>Generated Schedule will appear here...</h3>';
+    displayMetrics({}, []);
 });
     </script>
 </body>
