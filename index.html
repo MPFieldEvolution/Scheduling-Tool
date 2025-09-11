@@ -1013,7 +1013,6 @@
             }
             const schedule = {};
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            let unassignedLocations = [];
             
             const installWindowStart = document.getElementById('installWindowStart')?.value;
             const installWindowEnd = document.getElementById('installWindowEnd')?.value;
@@ -1036,10 +1035,11 @@
             
             let currentDate = new Date();
             currentDate.setHours(0,0,0,0);
-            let locationQueue = sortedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope), originalScope: loc.scope }));
+            let locationQueue = sortedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope) }));
+            let unassignedLocations = [];
             
-            let loopGuard = 0;
             const maxDays = 365;
+            let loopGuard = 0;
 
             while (locationQueue.length > 0 && loopGuard < maxDays) {
                 loopGuard++;
@@ -1047,7 +1047,7 @@
                 let didScheduleThisDay = false;
 
                 const locationsToProcessThisDay = [...locationQueue];
-                locationQueue = []; // Reset queue for next pass
+                locationQueue = [];
 
                 for (const location of locationsToProcessThisDay) {
                     
@@ -1064,7 +1064,7 @@
                         });
 
                         if (eligibleTeams.length > 0) {
-                            const scopeItems = parseScope(location.originalScope);
+                            const scopeItems = parseScope(location.originalScope || location.scope);
                             let requiredTechs = 0;
                             scopeItems.forEach(item => {
                                 const scopeTemplate = scopes.find(s => s.type.toLowerCase().includes(item.type.toLowerCase()));
@@ -1143,10 +1143,13 @@
                                 }
                                 
                                 location.remainingDuration -= workToday;
+                                location.scope = `${location.remainingDuration} min remaining`;
 
                                 if (location.remainingDuration <= 0) {
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
+                                    location.scope = location.originalScope;
+                                    delete location.originalScope;
                                 } else {
                                     locationQueue.push(location);
                                     scheduledThisLocation = true;
@@ -1171,11 +1174,13 @@
             lastUnassignedLocations = unassignedLocations;
             lastSchedule = schedule;
             
-            // Remove remainingDuration property before saving
+            // Clean up temporary properties before saving
             locations.forEach(loc => {
                 delete loc.remainingDuration;
+                delete loc.originalScope;
             });
 
+            saveAllData();
             saveScheduleState();
             displaySchedule(schedule, unassignedLocations, false);
             displayMetrics(schedule, unassignedLocations);
