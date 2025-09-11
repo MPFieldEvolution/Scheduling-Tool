@@ -369,9 +369,7 @@
                 displaySchedule(lastSchedule, lastUnassignedLocations);
                 displayMetrics(lastSchedule, lastUnassignedLocations);
             }
-            if (tabName === 'locations') {
-                updateLocationProviderCheckboxes();
-            }
+            // No longer calling updateLocationProviderCheckboxes()
         }
 
         // --- Tab Logic (robust, no inline onclick, fluid UI) ---
@@ -395,7 +393,7 @@
                         displayMetrics(lastSchedule, lastUnassignedLocations);
                     }
                     if (tabName === 'locations') {
-                        updateLocationProviderCheckboxes();
+                        updateProjectProviders();
                     }
                 });
             });
@@ -787,7 +785,6 @@
             editLocationId = null;
             if (document.querySelector('button[onclick="addLocation()"]')) document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             currentLocationScopes = [];
-            if (typeof renderLocationScopeList === "function") renderLocationScopeList();
         }
 
         // --- Scope CRUD ---
@@ -1044,68 +1041,67 @@
                             }
                         }
 
-                        if (assignedTechCount >= requiredTechs) { // Check before trying to access primaryTeamDriveInfo
-                             if (primaryTeamDriveInfo) {
-                                const teamStart = eligibleTeams[0].startTime.split(':');
-                                const teamEnd = eligibleTeams[0].endTime.split(':');
-                                const dayStartTime = new Date(currentDate);
-                                dayStartTime.setHours(Math.max(parseInt(teamStart[0]), locStartHour), Math.max(parseInt(teamStart[1]), locStartMin), 0, 0);
-                                const dayEndTime = new Date(currentDate);
-                                dayEndTime.setHours(Math.min(parseInt(teamEnd[0]), locEndHour), Math.min(parseInt(teamEnd[1]), locEndMin), 0, 0);
+                        if (assignedTechCount >= requiredTechs && primaryTeamDriveInfo) {
+                            const teamStart = eligibleTeams[0].startTime.split(':');
+                            const teamEnd = eligibleTeams[0].endTime.split(':');
+                            const dayStartTime = new Date(currentDate);
+                            dayStartTime.setHours(Math.max(parseInt(teamStart[0]), locStartHour), Math.max(parseInt(teamStart[1]), locStartMin), 0, 0);
+                            const dayEndTime = new Date(currentDate);
+                            dayEndTime.setHours(Math.min(parseInt(teamEnd[0]), locEndHour), Math.min(parseInt(teamEnd[1]), locEndMin), 0, 0);
 
-                                const availableWorkMinutes = (dayEndTime.getTime() - dayStartTime.getTime()) / 60000;
-                                
-                                const workToday = Math.min(jobDurationMinutes, availableWorkMinutes);
+                            const availableWorkMinutes = (dayEndTime.getTime() - dayStartTime.getTime()) / 60000;
+                            
+                            const workToday = Math.min(jobDurationMinutes, availableWorkMinutes);
 
-                                const jobStartTime = new Date(dayStartTime);
-                                const jobEndTime = new Date(jobStartTime.getTime() + workToday * 60000);
-                                
-                                const newAssignment = {
-                                    location: { ...location, scope: location.originalScope || location.scope },
-                                    startDateTime: jobStartTime,
-                                    endDateTime: jobEndTime,
-                                    duration: workToday,
-                                    driveTime: primaryTeamDriveInfo.minutes,
-                                    driveMiles: primaryTeamDriveInfo.miles,
-                                    assignedTeams: assignedTeams,
-                                    day: dayOfWeek,
-                                    overrideParams: [],
-                                    requiredTechs: requiredTechs,
-                                    id: Date.now()
-                                };
+                            const jobStartTime = new Date(dayStartTime);
+                            const jobEndTime = new Date(jobStartTime.getTime() + workToday * 60000);
+                            
+                            const newAssignment = {
+                                location: { ...location, scope: location.originalScope || location.scope },
+                                startDateTime: jobStartTime,
+                                endDateTime: jobEndTime,
+                                duration: workToday,
+                                driveTime: primaryTeamDriveInfo.minutes,
+                                driveMiles: primaryTeamDriveInfo.miles,
+                                assignedTeams: assignedTeams,
+                                day: dayOfWeek,
+                                overrideParams: [],
+                                requiredTechs: requiredTechs,
+                                id: Date.now()
+                            };
 
-                                if (!schedule[currentDate.toISOString()]) schedule[currentDate.toISOString()] = { date: currentDate, teams: [] };
-                                
-                                for(const assignedTeam of assignedTeams) {
-                                    let teamEntry = schedule[currentDate.toISOString()].teams.find(t => t.team.id === assignedTeam.teamId);
-                                    if (!teamEntry) {
-                                        const originalTeam = technicians.find(t => t.id === assignedTeam.teamId);
-                                        teamEntry = { team: originalTeam, assignments: [] };
-                                        schedule[currentDate.toISOString()].teams.push(teamEntry);
-                                    }
-                                    teamEntry.assignments.push(newAssignment);
-                                    techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] = (techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] || 0) + assignedTeam.assignedTechs;
+                            if (!schedule[currentDate.toISOString()]) schedule[currentDate.toISOString()] = { date: currentDate, teams: [] };
+                            
+                            for(const assignedTeam of assignedTeams) {
+                                let teamEntry = schedule[currentDate.toISOString()].teams.find(t => t.team.id === assignedTeam.teamId);
+                                if (!teamEntry) {
+                                    const originalTeam = technicians.find(t => t.id === assignedTeam.teamId);
+                                    teamEntry = { team: originalTeam, assignments: [] };
+                                    schedule[currentDate.toISOString()].teams.push(teamEntry);
                                 }
+                                teamEntry.assignments.push(newAssignment);
+                                techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] = (techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] || 0) + assignedTeam.assignedTechs;
+                            }
 
-                                if (jobDurationMinutes - workToday <= 0) {
-                                    scheduled = true;
-                                    location.originalScope = null;
-                                } else {
-                                    location.originalScope = location.originalScope || location.scope;
-                                    location.scope = `${jobDurationMinutes - workToday} min remaining`;
-                                    locationQueue.unshift(location);
-                                }
+                            if (jobDurationMinutes - workToday <= 0) {
+                                scheduled = true;
+                                location.originalScope = null;
+                            } else {
+                                location.originalScope = location.originalScope || location.scope;
+                                location.scope = `${jobDurationMinutes - workToday} min remaining`;
+                                locationQueue.unshift(location);
                             }
                         }
                     }
                 }
                 
-                if (!scheduled && jobDurationMinutes > 0) {
+                if (!scheduled) {
                     currentDate.setDate(currentDate.getDate() + 1);
                     locationQueue.unshift(location);
-                } else if (!scheduled && jobDurationMinutes <= 0) {
-                     unassignedLocations.push(location);
                 }
+            }
+            if (locationQueue.length > 0) {
+                unassignedLocations = locationQueue;
             }
 
             // Restore original scope before saving
@@ -1223,7 +1219,7 @@
                         }
                     }
 
-                    if (assignedTechCount < requiredTechs) {
+                    if (assignedTechCount < requiredTechs || !primaryTeamDriveInfo) {
                         currentDate.setDate(currentDate.getDate() + 1);
                         unassignedCopy.unshift(location);
                         continue;
