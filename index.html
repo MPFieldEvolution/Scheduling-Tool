@@ -1025,20 +1025,21 @@
             
             let currentDate = new Date();
             currentDate.setHours(0,0,0,0);
-            let locationQueue = [...sortedLocations];
+            let locationQueue = sortedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope), originalScope: loc.scope }));
+            
             let loopGuard = 0;
+            const maxDays = 365;
 
-            while (locationQueue.length > 0 && loopGuard < 1000) {
+            while (locationQueue.length > 0 && loopGuard < maxDays) {
                 loopGuard++;
                 const dayOfWeek = days[currentDate.getDay()];
                 let didScheduleThisDay = false;
 
-                const originalQueueLength = locationQueue.length;
-                let locationsToProcess = [...locationQueue];
-                locationQueue = []; // Reset queue for next pass
+                const locationsToProcessThisDay = [...locationQueue];
+                locationQueue = [];
 
-                for (const location of locationsToProcess) {
-                    let jobDurationMinutes = calculateJobDuration(location.scope);
+                for (const location of locationsToProcessThisDay) {
+                    
                     const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
                     const isLocationAvailable = getLocationAvailableDays(location).includes(dayOfWeek);
                     
@@ -1052,7 +1053,7 @@
                         });
 
                         if (eligibleTeams.length > 0) {
-                            const scopeItems = parseScope(location.scope);
+                            const scopeItems = parseScope(location.originalScope);
                             let requiredTechs = 0;
                             scopeItems.forEach(item => {
                                 const scopeTemplate = scopes.find(s => s.type.toLowerCase().includes(item.type.toLowerCase()));
@@ -1098,13 +1099,13 @@
 
                                 const availableWorkMinutes = (dayEndTime.getTime() - dayStartTime.getTime()) / 60000;
                                 
-                                const workToday = Math.min(jobDurationMinutes, availableWorkMinutes);
+                                const workToday = Math.min(location.remainingDuration, availableWorkMinutes);
 
                                 const jobStartTime = new Date(dayStartTime);
                                 const jobEndTime = new Date(jobStartTime.getTime() + workToday * 60000);
                                 
                                 const newAssignment = {
-                                    location: { ...location, scope: location.originalScope || location.scope },
+                                    location: location,
                                     startDateTime: jobStartTime,
                                     endDateTime: jobEndTime,
                                     duration: workToday,
@@ -1129,13 +1130,13 @@
                                     teamEntry.assignments.push(newAssignment);
                                     techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] = (techUsage[assignedTeam.teamId][currentDate.toISOString().split('T')[0]] || 0) + assignedTeam.assignedTechs;
                                 }
+                                
+                                location.remainingDuration -= workToday;
 
-                                if (jobDurationMinutes - workToday <= 0) {
+                                if (location.remainingDuration <= 0) {
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
                                 } else {
-                                    location.originalScope = location.originalScope || location.scope;
-                                    location.scope = `${jobDurationMinutes - workToday} min remaining`;
                                     locationQueue.push(location);
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
@@ -1148,7 +1149,7 @@
                     }
                 }
                 
-                if (!didScheduleThisDay && locationQueue.length === originalQueueLength) {
+                if (!didScheduleThisDay && locationQueue.length === locationsToProcessThisDay.length) {
                     unassignedLocations = [...locationQueue];
                     locationQueue = [];
                 } else if (didScheduleThisDay) {
@@ -1156,17 +1157,14 @@
                 }
             }
 
-            // Restore original scope before saving
-            locations.forEach(loc => {
-                if (loc.originalScope) {
-                    loc.scope = loc.originalScope;
-                    delete loc.originalScope;
-                }
-            });
-
             lastUnassignedLocations = unassignedLocations;
             lastSchedule = schedule;
             
+            // Remove remainingDuration property before saving
+            locations.forEach(loc => {
+                delete loc.remainingDuration;
+            });
+
             saveScheduleState();
             displaySchedule(schedule, unassignedLocations, false);
             displayMetrics(schedule, unassignedLocations);
