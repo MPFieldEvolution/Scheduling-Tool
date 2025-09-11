@@ -1174,6 +1174,64 @@
             }
             output.innerHTML = html;
         }
+
+        // --- Metrics Display (add this function to fix the error) ---
+        function displayMetrics(schedule, unassigned) {
+            const metricsDiv = document.getElementById('metrics');
+            if (!metricsDiv) return;
+
+            // Calculate metrics
+            let totalJobs = 0;
+            let totalDriveMinutes = 0;
+            let totalDriveMiles = 0;
+            let totalDuration = 0;
+            let totalTeams = 0;
+
+            if (schedule && typeof schedule === 'object') {
+                Object.values(schedule).forEach(dayObj => {
+                    if (dayObj.teams) {
+                        totalTeams += dayObj.teams.length;
+                        dayObj.teams.forEach(team => {
+                            team.assignments.forEach(a => {
+                                totalJobs++;
+                                totalDriveMinutes += Number(a.driveTime) || 0;
+                                totalDriveMiles += Number(a.driveMiles) || 0;
+                                totalDuration += Number(a.duration) || 0;
+                            });
+                        });
+                    }
+                });
+            }
+
+            metricsDiv.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${totalJobs}</div>
+                    <div class="metric-label">Total Jobs Scheduled</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${totalTeams}</div>
+                    <div class="metric-label">Teams Utilized</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${totalDriveMiles.toFixed(1)}</div>
+                    <div class="metric-label">Total Drive Miles</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${totalDriveMinutes}</div>
+                    <div class="metric-label">Total Drive Minutes</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${totalDuration}</div>
+                    <div class="metric-label">Total Installation Minutes</div>
+                </div>
+                ${unassigned && unassigned.length > 0 ? `
+                <div class="metric-card" style="background: #dc3545;">
+                    <div class="metric-value">${unassigned.length}</div>
+                    <div class="metric-label">Unassigned Locations</div>
+                </div>
+                ` : ''}
+            `;
+        }
         </script>
     </body>
     </html>
