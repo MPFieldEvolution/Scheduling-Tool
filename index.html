@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FE Installation Project Scheduler</title>
     <style>
-        /* --- Styling from your previous code --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; background: #ff0000; min-height: 100vh; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
@@ -52,29 +51,23 @@
     <script src="https://unpkg.com/@googlemaps/places-autocomplete-element@1.0.0/dist/index.min.js"></script>
     <script>
     window.addEventListener('DOMContentLoaded', function() {
-        function setupAutocomplete(autocompleteId, inputId) {
+        function syncAutocomplete(autocompleteId, inputId) {
             const autocompleteEl = document.getElementById(autocompleteId);
             const inputEl = document.getElementById(inputId);
             if (autocompleteEl && inputEl) {
                 autocompleteEl.addEventListener('gmpx-placeautocomplete-placechange', (event) => {
                     const place = event.detail;
-                    inputEl.value = place.formattedAddress || '';
+                    inputEl.value = place.formattedAddress || autocompleteEl.value || '';
+                });
+                autocompleteEl.addEventListener('input', () => {
+                    inputEl.value = autocompleteEl.value;
                 });
             }
         }
-        setupAutocomplete('techAddressAutocomplete', 'techAddress');
-        setupAutocomplete('locationAddressAutocomplete', 'locationAddress');
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                setTimeout(() => {
-                    setupAutocomplete('techAddressAutocomplete', 'techAddress');
-                    setupAutocomplete('locationAddressAutocomplete', 'locationAddress');
-                }, 100);
-            });
-        });
+        syncAutocomplete('techAddressAutocomplete', 'techAddress');
+        syncAutocomplete('locationAddressAutocomplete', 'locationAddress');
     });
 
-    // Google Maps Distance Matrix API for drive time
     async function getDriveTimeMinutes(origin, destination) {
         return new Promise((resolve) => {
             if (!origin || !destination) return resolve(0);
@@ -127,7 +120,7 @@
                     </div>
                     <div class="form-group">
                         <label for="techAddress">Technician Address</label>
-                        <gmpx-place-autocomplete id="techAddressAutocomplete" style="width:100%;" placeholder="e.g., 100 Main St, City, State ZIP"></gmpx-place-autocomplete>
+                        <gmpx-place-autocomplete id="techAddressAutocomplete" style="width:100%;" aria-label="Technician Address" placeholder="e.g., 100 Main St, City, State ZIP"></gmpx-place-autocomplete>
                         <input type="hidden" id="techAddress" />
                     </div>
                     <div class="form-group">
@@ -189,7 +182,7 @@
                     </div>
                     <div class="form-group">
                         <label for="locationAddress">Full Address</label>
-                        <gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
+                        <gmpx-place-autocomplete id="locationAddressAutocomplete" style="width:100%;" aria-label="Location Address" placeholder="123 Main St, City, State ZIP"></gmpx-place-autocomplete>
                         <input type="hidden" id="locationAddress" />
                     </div>
                     <div class="form-group">
@@ -290,7 +283,6 @@
         </div>
     </div>
     <script>
-    // --- Data and UI Logic ---
     let technicians = [];
     let locations = [];
     let scopes = [];
@@ -300,6 +292,14 @@
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         if (event && event.target) {
             event.target.classList.add('active');
+        } else {
+            // fallback for inline onclick
+            const btns = document.querySelectorAll('.tab');
+            btns.forEach(btn => {
+                if (btn.textContent.replace(/\s/g, '').toLowerCase().includes(tabName)) {
+                    btn.classList.add('active');
+                }
+            });
         }
         document.getElementById(tabName).classList.add('active');
         if (tabName === 'scopes') updateScopeList();
@@ -579,7 +579,6 @@
                 let i = 0;
                 while (i < unassignedLocations.length && currentTime < endTime) {
                     const location = unassignedLocations[i];
-                    // Calculate drive time using Google API
                     let driveTime = await getDriveTimeMinutes(tech.address, location.address);
                     let bufferTime = calculateAutoBuffer(driveTime);
                     const jobDuration = calculateJobDuration(location.scope);
@@ -684,3 +683,5 @@
         `;
     }
     </script>
+</body>
+</html>
