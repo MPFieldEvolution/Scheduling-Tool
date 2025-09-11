@@ -1243,7 +1243,7 @@
                     html += `<h4>${day} &mdash; ${date instanceof Date && !isNaN(date) ? date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : day}</h4>`;
                     teams.forEach(teamSchedule => {
                         html += `<div class="assignment">`;
-                        html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
+                        html += `<p><strong>${teamSchedule.team.teamName}</strong> (Team Size: ${teamSchedule.team.count} techs)</p>`;
                         teamSchedule.assignments.forEach(assignment => {
                             let startDT = assignment.startDateTime;
                             let endDT = assignment.endDateTime;
@@ -1261,6 +1261,8 @@
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
                             html += `<span class="tech-tag">${startTime}</span> - <span class="tech-tag">${endTime}</span>`;
                             html += `<span class="location-tag">${assignment.location.siteId}</span>`;
+                            // Show assigned techs for this specific location
+                            html += `<p><strong>Techs Assigned:</strong> ${assignment.assignedTechs}</p>`;
                             html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                             html += `<p>📋 ${assignment.location.scope}</p>`;
                             html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
@@ -1375,6 +1377,7 @@
                 "Day",
                 "Team Name",
                 "Team Size",
+                "Assigned Techs",
                 "Start Time",
                 "End Time",
                 "Site ID",
@@ -1395,6 +1398,7 @@
                             day,
                             teamSchedule.team.teamName,
                             teamSchedule.team.count,
+                            assignment.assignedTechs,
                             new Date(assignment.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
                             new Date(assignment.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
                             assignment.location.siteId,
@@ -1411,11 +1415,12 @@
             });
 
             if (lastUnassignedLocations.length > 0) {
-                 const unassignedHeader = ["Unassigned Locations", "", "", "", "", "", "", "", "", "", "", "", ""];
+                 const unassignedHeader = ["Unassigned Locations", "", "", "", "", "", "", "", "", "", "", "", "", ""];
                  data.push([]);
                  data.push(unassignedHeader);
                  lastUnassignedLocations.forEach(loc => {
                      data.push([
+                         "",
                          "",
                          "",
                          "",
