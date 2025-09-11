@@ -116,10 +116,10 @@
     <div class="container">
         <h1>FE Installation Project Scheduler</h1>
         <div class="tabs">
-            <button class="tab active" type="button">Technicians</button>
-            <button class="tab" type="button">Locations</button>
-            <button class="tab" type="button">Scope Templates</button>
-            <button class="tab" type="button">Generate Schedule</button>
+            <button class="tab active" type="button" data-tab="technicians">Technicians</button>
+            <button class="tab" type="button" data-tab="locations">Locations</button>
+            <button class="tab" type="button" data-tab="scopes">Scope Templates</button>
+            <button class="tab" type="button" data-tab="schedule">Generate Schedule</button>
         </div>
 
         <!-- Technicians Section -->
@@ -367,16 +367,16 @@
                 document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
                 // Add active to clicked tab and corresponding section
                 tab.classList.add('active');
-                const tabName = tab.textContent.trim().toLowerCase().replace(/\s/g, '');
+                const tabName = tab.getAttribute('data-tab');
                 const section = document.getElementById(tabName);
                 if (section) section.classList.add('active');
                 // Save tab state
                 localStorage.setItem('currentTab', tabName);
                 // Always update content when switching tabs
-                if (tabName === 'scopetemplates' || tabName === 'scopes') {
+                if (tabName === 'scopes') {
                     updateScopeList();
                 }
-                if (tabName === 'generateschedule' || tabName === 'schedule') {
+                if (tabName === 'schedule') {
                     updateScheduleTabContent();
                 }
             });
@@ -384,7 +384,9 @@
 
         // Restore tab on load
         const savedTab = localStorage.getItem('currentTab') || 'technicians';
-        setCurrentTab(savedTab);
+        const tabBtn = document.querySelector(`.tab[data-tab="${savedTab}"]`);
+        if (tabBtn) tabBtn.click();
+        else document.querySelector('.tab').click();
     });
 
     // --- Scope List always updates ---
