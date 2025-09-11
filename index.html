@@ -799,6 +799,11 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Advanced Scheduling Logic ---
+    // This version will attempt to schedule every location on every valid day with any available tech team.
+    // It will try all techs for each location/day, and assign the closest available team.
+    // If multiple techs are available, it will pick the one with the shortest drive.
+    // If a location is available every day, it will be scheduled as soon as a tech is available.
+
     async function generateSchedule() {
         if (technicians.length === 0 || locations.length === 0) {
             alert('Please add at least one technician team and one location');
@@ -817,8 +822,8 @@ window.addEventListener('DOMContentLoaded', function() {
             sortedLocations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
         }
         const schedule = {};
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-        let unassignedLocations = [...sortedLocations];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        let unassignedLocations = [];
 
         // Get install window from user
         const installWindowStart = document.getElementById('installWindowStart').value;
@@ -830,10 +835,6 @@ window.addEventListener('DOMContentLoaded', function() {
         const today = new Date();
         let weekStart = windowStart ? new Date(windowStart) : new Date(today);
         weekStart.setHours(0,0,0,0);
-        if (weekStart.getDay() !== 1) { // 1 = Monday
-            weekStart = getNextDateForWeekday(weekStart, "Monday");
-            weekStart.setHours(0,0,0,0);
-        }
 
         // Precompute drive info for all tech teams to all locations (address to address)
         const driveInfoCache = {};
@@ -845,31 +846,37 @@ window.addEventListener('DOMContentLoaded', function() {
             return info;
         }
 
-        // For each day, for each tech, assign jobs
-        for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
-            const day = days[dayIdx];
-            const dayDate = new Date(weekStart);
-            dayDate.setDate(weekStart.getDate() + dayIdx);
-            if (windowStart && dayDate < windowStart) continue;
-            if (windowEnd && dayDate > windowEnd) continue;
-            schedule[day] = { date: dayDate, teams: [] };
-            const availableTechs = technicians.filter(tech => tech.days.includes(day));
-            for (const tech of availableTechs) {
-                const startTime = new Date(dayDate);
-                const [startHour, startMin] = tech.startTime.split(':').map(Number);
-                startTime.setHours(startHour, startMin, 0, 0);
-                const endTime = new Date(dayDate);
-                const [endHour, endMin] = tech.endTime.split(':').map(Number);
-                endTime.setHours(endHour, endMin, 0, 0);
+        // Track which locations have been scheduled
+        const scheduledLocationIds = new Set();
 
-                let currentTime = new Date(startTime);
-                let lastAddress = tech.address || tech.location || "";
-                const assignments = [];
-                let i = 0;
-                while (i < unassignedLocations.length && currentTime < endTime) {
-                    const location = unassignedLocations[i];
+        // For each location, try to schedule it on any valid day with any available tech
+        for (const location of sortedLocations) {
+            let scheduled = false;
+            // Find all days this location is available
+            let availableDays = [];
+            if (location.availability && location.availability.trim() !== "") {
+                for (const day of days) {
+                    if (location.availability.toLowerCase().includes(day.toLowerCase())) {
+                        availableDays.push(day);
+                    }
+                }
+            } else {
+                availableDays = [...days];
+            }
 
-                    // --- Specialization Matching ---
+            // Try each available day in order
+            for (const day of availableDays) {
+                // Find all techs available on this day
+                const availableTechs = technicians.filter(tech => tech.days.includes(day));
+                if (availableTechs.length === 0) continue;
+
+                // Find the tech with the shortest drive to this location
+                let bestTech = null;
+                let bestDrive = null;
+                let bestAssignment = null;
+
+                for (const tech of availableTechs) {
+                    // Check specialization and tech count
                     const scopeItems = parseScope(location.scope);
                     let allScopesMatch = true;
                     for (const item of scopeItems) {
@@ -894,64 +901,77 @@ window.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     }
-                    if (!allScopesMatch) {
-                        i++;
-                        continue;
-                    }
+                    if (!allScopesMatch) continue;
 
-                    // --- Site Availability: Only schedule if day matches customer availability ---
-                    let canSchedule = false;
-                    if (location.availability && location.availability.trim() !== "") {
-                        const avail = location.availability.toLowerCase();
-                        if (avail.includes(day.toLowerCase())) {
-                            canSchedule = true;
-                        }
-                    } else {
-                        // If no availability set, allow scheduling any day
-                        canSchedule = true;
-                    }
-                    if (!canSchedule) {
-                        i++;
-                        continue;
-                    }
+                    // Calculate drive info
+                    const driveInfo = await getDriveInfoCached(tech, location);
 
-                    // --- Drive info and buffer ---
-                    const driveInfo = await getDriveInfoCached({address: lastAddress}, location);
-                    const bufferTime = 15; // Always 15 min
+                    // Calculate job duration
                     const jobDuration = calculateJobDuration(location.scope);
-                    const jobStartTime = new Date(currentTime.getTime() + bufferTime * 60000); // buffer before job
+
+                    // Get tech working hours for this day
+                    const dayDate = new Date(weekStart);
+                    dayDate.setDate(weekStart.getDate() + days.indexOf(day));
+                    if (windowStart && dayDate < windowStart) continue;
+                    if (windowEnd && dayDate > windowEnd) continue;
+
+                    const startTime = new Date(dayDate);
+                    const [startHour, startMin] = tech.startTime.split(':').map(Number);
+                    startTime.setHours(startHour, startMin, 0, 0);
+                    const endTime = new Date(dayDate);
+                    const [endHour, endMin] = tech.endTime.split(':').map(Number);
+                    endTime.setHours(endHour, endMin, 0, 0);
+
+                    // Schedule job at earliest available time
+                    const bufferTime = 15; // Always 15 min
+                    const jobStartTime = new Date(startTime.getTime() + bufferTime * 60000);
                     const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
-                    // Only schedule if within install window
-                    if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) {
-                        i++;
-                        continue;
-                    }
+                    // Only schedule if within tech's working hours and install window
+                    if (jobEndTime > endTime) continue;
+                    if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) continue;
 
-                    if (jobEndTime <= endTime) {
-                        assignments.push({
+                    // If this tech is closer than previous, use them
+                    if (!bestDrive || driveInfo.minutes < bestDrive.minutes) {
+                        bestTech = tech;
+                        bestDrive = driveInfo;
+                        bestAssignment = {
                             location: location,
                             startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
                             driveTime: driveInfo.minutes,
                             driveMiles: driveInfo.miles
-                        });
-                        currentTime = jobEndTime;
-                        lastAddress = location.address;
-                        unassignedLocations.splice(i, 1);
-                    } else {
-                        i++;
+                        };
                     }
                 }
-                if (assignments.length > 0) {
-                    schedule[day].teams.push({
-                        team: tech,
-                        assignments: assignments
-                    });
+
+                // If we found a tech, schedule the job
+                if (bestTech && bestAssignment) {
+                    if (!schedule[day]) schedule[day] = { date: null, teams: [] };
+                    // Set the date for this day
+                    if (!schedule[day].date) {
+                        const dayDate = new Date(weekStart);
+                        dayDate.setDate(weekStart.getDate() + days.indexOf(day));
+                        schedule[day].date = dayDate;
+                    }
+                    // Find or create the team entry for this tech
+                    let teamEntry = schedule[day].teams.find(t => t.team.teamName === bestTech.teamName);
+                    if (!teamEntry) {
+                        teamEntry = { team: bestTech, assignments: [] };
+                        schedule[day].teams.push(teamEntry);
+                    }
+                    teamEntry.assignments.push(bestAssignment);
+                    scheduledLocationIds.add(location.id);
+                    scheduled = true;
+                    break; // Stop after scheduling this location
                 }
             }
+            if (!scheduled) {
+                unassignedLocations.push(location);
+            }
         }
+
         displaySchedule(schedule, unassignedLocations);
         displayMetrics(schedule, unassignedLocations);
     }
