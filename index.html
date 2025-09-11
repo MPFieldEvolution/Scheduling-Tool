@@ -284,19 +284,6 @@
                 <button class="btn btn-secondary" id="overrideBtn" onclick="overrideUnassignedSchedule()" style="margin-left:10px; display:none;">Override Parameters</button>
                 <button class="btn" onclick="exportToXLSX()" style="margin-left: 10px;">Export to XLSX</button>
             </div>
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Project Management</h3>
-                </div>
-                <div class="form-grid" style="grid-template-columns: minmax(200px, 1fr) auto auto;">
-                    <input type="text" id="projectName" placeholder="Enter project name to save...">
-                    <button class="btn" onclick="saveProject()">Save Project</button>
-                    <button class="btn btn-secondary" onclick="loadProject()">Load Project</button>
-                </div>
-                <div id="projectList" class="project-list-container">
-                    <p style="color:#888; text-align: center;">Loading saved projects...</p>
-                </div>
-            </div>
             <div class="metrics" id="metrics"></div>
             <div class="schedule-output" id="scheduleOutput">
                 <h3>Generated Schedule will appear here...</h3>
@@ -304,11 +291,6 @@
         </div>
     </div>
     <script>
-        // Global variables for Firebase
-        let db;
-        let auth;
-        let userId;
-
         // --- Data and UI Logic ---
         let technicians = [];
         let locations = [];
@@ -324,160 +306,19 @@
         let lastSchedule = {};
         let lastAssignments = [];
 
-        // --- Persistent Storage using Firestore ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        let firebaseConfig = {};
-        if (typeof __firebase_config !== 'undefined') {
-            try {
-                firebaseConfig = JSON.parse(__firebase_config);
-            } catch (e) {
-                console.error("Error parsing __firebase_config:", e);
-            }
-        }
-
-        async function setupFirebase() {
-            if (!window.firebase || Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase config is missing or invalid. Cannot initialize Firebase.");
-                return;
-            }
-
-            const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore } = window.firebase;
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            if (typeof __initial_auth_token !== 'undefined') {
-                try {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } catch (error) {
-                    console.error("Error signing in with custom token:", error);
-                    await signInAnonymously(auth);
-                }
-            } else {
-                await signInAnonymously(auth);
-            }
-            userId = auth.currentUser?.uid || crypto.randomUUID();
-            listenForProjects();
-        }
-
-        async function saveProject() {
-            if (!db || !userId) {
-                alert('Firebase not initialized. Cannot save.');
-                return;
-            }
-            const projectName = document.getElementById('projectName').value.trim();
-            if (!projectName) {
-                alert('Please enter a project name.');
-                return;
-            }
-            const projectData = {
-                technicians,
-                locations,
-                scopes,
-                timestamp: new Date()
-            };
-            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${projectName}`);
-            try {
-                await window.firebase.setDoc(projectRef, projectData, { merge: true });
-                alert(`Project '${projectName}' saved successfully!`);
-            } catch (e) {
-                console.error("Error saving project: ", e);
-                alert("Failed to save project. Check console for details.");
-            }
-        }
-
-        async function loadProject() {
-            if (!db || !userId) {
-                alert('Firebase not initialized. Cannot load.');
-                return;
-            }
-            const projectName = document.getElementById('projectName').value.trim();
-            if (!projectName) {
-                alert('Please enter a project name to load.');
-                return;
-            }
-            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${projectName}`);
-            try {
-                const docSnap = await window.firebase.getDoc(projectRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    technicians = data.technicians;
-                    locations = data.locations;
-                    scopes = data.scopes;
-                    updateTechnicianList();
-                    updateLocationList();
-                    updateScopeList();
-                    updateScheduleTabContent();
-                    alert(`Project '${projectName}' loaded successfully!`);
-                } else {
-                    alert(`No project found with the name '${projectName}'.`);
-                }
-            } catch (e) {
-                console.error("Error loading project: ", e);
-                alert("Failed to load project. Check console for details.");
-            }
-        }
-        
-        async function listenForProjects() {
-            if (!db || !userId) return;
-            const projectListDiv = document.getElementById('projectList');
-            const q = window.firebase.collection(db, `artifacts/${appId}/users/${userId}/projects`);
-            window.firebase.onSnapshot(q, (querySnapshot) => {
-                const projects = [];
-                querySnapshot.forEach((doc) => {
-                    projects.push(doc.id);
-                });
-                renderProjectList(projects);
-            }, (error) => {
-                console.error("Error listening to projects:", error);
-                projectListDiv.innerHTML = `<p style="color:#c33; text-align: center;">Error loading projects. Check console.</p>`;
-            });
-        }
-        
-        function renderProjectList(projects) {
-            const listDiv = document.getElementById('projectList');
-            if (projects.length === 0) {
-                listDiv.innerHTML = '<p style="color:#888; text-align: center;">No saved projects yet.</p>';
-                return;
-            }
-            listDiv.innerHTML = `
-                <p style="font-weight: bold; margin-bottom: 5px;">Saved Projects:</p>
-                ${projects.map(name => `
-                    <div class="project-item">
-                        <span>${name}</span>
-                        <div>
-                            <button class="btn btn-secondary" onclick="document.getElementById('projectName').value='${name}'; loadProject();">Load</button>
-                            <button class="btn btn-danger" onclick="deleteProject('${name}')">Delete</button>
-                        </div>
-                    </div>
-                `).join('')}
-            `;
-        }
-        
-        async function deleteProject(name) {
-             if (!db || !userId) {
-                alert('Firebase not initialized. Cannot delete.');
-                return;
-            }
-            if (!confirm(`Are you sure you want to delete project '${name}'?`)) {
-                return;
-            }
-            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${name}`);
-            try {
-                await window.firebase.deleteDoc(projectRef);
-                alert(`Project '${name}' deleted.`);
-            } catch (e) {
-                console.error("Error deleting project: ", e);
-                alert("Failed to delete project. Check console for details.");
-            }
-        }
-
-        // --- Data Persistence (using Firestore now) ---
+        // --- Data Persistence (using Local Storage now) ---
         function saveAllData() {
-            // No longer needed for general data, as projects are explicitly saved
+            localStorage.setItem('technicians', JSON.stringify(technicians));
+            localStorage.setItem('locations', JSON.stringify(locations));
+            localStorage.setItem('scopes', JSON.stringify(scopes));
         }
         function loadAllData() {
-            // No longer needed for general data, as projects are explicitly loaded
+            const techs = localStorage.getItem('technicians');
+            const locs = localStorage.getItem('locations');
+            const scps = localStorage.getItem('scopes');
+            if (techs) technicians = JSON.parse(techs);
+            if (locs) locations = JSON.parse(locs);
+            if (scps) scopes = JSON.parse(scps);
         }
         function getCurrentTabName() {
             const activeTab = document.querySelector('.tab.active');
@@ -506,17 +347,13 @@
             // Tab click handler
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', function () {
-                    // Remove active from all tabs and sections
                     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                    // Add active to clicked tab and corresponding section
                     tab.classList.add('active');
                     const tabName = tab.getAttribute('data-tab');
                     const section = document.getElementById(tabName);
                     if (section) section.classList.add('active');
-                    // Save tab state
                     localStorage.setItem('currentTab', tabName);
-                    // Always update content when switching tabs
                     if (tabName === 'scopes') {
                         updateScopeList();
                     }
@@ -525,11 +362,11 @@
                     }
                 });
             });
-            // Restore tab on load
+            loadAllData();
             const savedTab = localStorage.getItem('currentTab') || 'technicians';
             setCurrentTab(savedTab);
         });
-        
+
         window.addEventListener('DOMContentLoaded', function() {
             // Technician Address Autocomplete
             if (window.google && window.google.maps && window.google.maps.places) {
@@ -591,7 +428,7 @@
 
         // --- Initialization ---
         window.addEventListener('DOMContentLoaded', function() {
-            setupFirebase();
+            loadAllData();
             updateTechnicianList();
             updateLocationList();
             updateScopeList();
@@ -649,6 +486,7 @@
             }
             updateTechnicianList();
             clearTechForm();
+            saveAllData();
         }
         function clearTechForm() {
             document.getElementById('techLocation').value = '';
@@ -706,6 +544,7 @@
         function removeTechnician(id) {
             technicians = technicians.filter(t => t.id !== id);
             updateTechnicianList();
+            saveAllData();
         }
 
         // --- Location CRUD ---
@@ -755,6 +594,7 @@
             }
             updateLocationList();
             clearLocationForm();
+            saveAllData();
         }
         function updateLocationList() {
             const list = document.getElementById('locationList');
@@ -801,6 +641,7 @@
             locations = locations.filter(l => l.id !== id);
             updateLocationList();
             clearLocationForm();
+            saveAllData();
         }
         function clearLocationForm() {
             document.getElementById('locationId').value = '';
@@ -841,6 +682,7 @@
             scopes.push(scope);
             updateScopeList();
             clearScopeForm();
+            saveAllData();
         }
         function clearScopeForm() {
             document.getElementById('scopeType').value = '';
@@ -868,6 +710,7 @@
         function removeScope(id) {
             scopes = scopes.filter(s => s.id !== id);
             updateScopeList();
+            saveAllData();
         }
 
         // --- Helper: Parse scope string into items ---
@@ -1355,43 +1198,58 @@
                 if (teams.length > 0) {
                     html += `<div class="schedule-day">`;
                     html += `<h4>${day} &mdash; ${date instanceof Date && !isNaN(date) ? date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : day}</h4>`;
+                    
+                    // Group assignments by location first to avoid repetition
+                    const assignmentsByLocation = {};
                     teams.forEach(teamSchedule => {
-                        html += `<div class="assignment">`;
-                        html += `<p><strong>${teamSchedule.team.teamName}</strong> (Team Size: ${teamSchedule.team.count} techs)</p>`;
-                        
-                        const assignmentsForTeam = teamSchedule.assignments.filter(a => a.assignedTeams.some(at => at.teamId === teamSchedule.team.id));
-
-                        assignmentsForTeam.forEach(assignment => {
-                            const assignedTeam = assignment.assignedTeams.find(at => at.teamId === teamSchedule.team.id);
-
-                            let startDT = assignment.startDateTime;
-                            let endDT = assignment.endDateTime;
-
-                            if (typeof startDT === 'string') {
-                                startDT = new Date(startDT);
+                        teamSchedule.assignments.forEach(assignment => {
+                             const locationId = assignment.location.id;
+                            if (!assignmentsByLocation[locationId]) {
+                                assignmentsByLocation[locationId] = {
+                                    ...assignment,
+                                    teams: []
+                                };
                             }
-                            if (typeof endDT === 'string') {
-                                endDT = new Date(endDT);
-                            }
-
-                            const startTime = startDT instanceof Date && !isNaN(startDT) ? startDT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : startDT;
-                            const endTime = endDT instanceof Date && !isNaN(endDT) ? endDT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : endDT;
-                            
-                            html += `<div style="margin-left: 20px; margin-top: 10px;">`;
-                            html += `<span class="tech-tag">${startTime}</span> - <span class="tech-tag">${endTime}</span>`;
-                            html += `<span class="location-tag">${assignment.location.siteId}</span>`;
-                            html += `<p><strong>Techs Assigned:</strong> ${assignedTeam.assignedTechs} from this team (Total for job: ${assignment.assignedTeams.reduce((sum, at) => sum + at.assignedTechs, 0)})</p>`;
-                            html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
-                            html += `<p>📋 ${assignment.location.scope}</p>`;
-                            html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
-                            html += `<p>🚗 Est. Drive: ${assignedTeam.driveInfo.miles} mi, ${assignedTeam.driveInfo.minutes} min</p>`;
-                            if (assignment.overrideParams && assignment.overrideParams.length > 0) {
-                                html += `<p style="color:#c33;"><strong>Override: </strong>Scheduled by breaking: ${assignment.overrideParams.join(', ')}</p>`;
-                            }
-                            html += `</div>`;
+                            assignmentsByLocation[locationId].teams.push(...assignment.assignedTeams);
                         });
+                    });
+
+                    Object.values(assignmentsByLocation).forEach(assignment => {
+                        html += `<div class="assignment">`;
+                        
+                        const startTime = assignment.startDateTime instanceof Date && !isNaN(assignment.startDateTime) ? assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : assignment.startDateTime;
+                        const endTime = assignment.endDateTime instanceof Date && !isNaN(assignment.endDateTime) ? assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : assignment.endDateTime;
+                        
+                        html += `<p>
+                            <span class="tech-tag">${startTime}</span> - <span class="tech-tag">${endTime}</span>
+                            <span class="location-tag">${assignment.location.siteId}</span>
+                        </p>`;
+                        
+                        // List assigned teams and their tech count for this specific job
+                        html += `<p style="margin-top: 5px;"><strong>Assigned Teams:</strong></p>`;
+                        html += `<ul>`;
+                        assignment.teams.forEach(team => {
+                            const originalTeam = technicians.find(t => t.id === team.teamId);
+                             const teamName = originalTeam ? originalTeam.teamName : `Team ID: ${team.teamId}`;
+                            html += `<li style="margin-left: 20px;">${teamName} - ${team.assignedTechs} tech${team.assignedTechs > 1 ? 's' : ''}</li>`;
+                        });
+                        html += `</ul>`;
+                        
+                        html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
+                        html += `<p>📋 ${assignment.location.scope}</p>`;
+                        html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
+                        
+                        // Display drive time from the first assigned team's base
+                        if (assignment.teams.length > 0) {
+                            html += `<p>🚗 Est. Drive from ${assignment.teams[0].teamName}: ${assignment.teams[0].driveInfo.miles} mi, ${assignment.teams[0].driveInfo.minutes} min</p>`;
+                        }
+                        
+                        if (assignment.overrideParams && assignment.overrideParams.length > 0) {
+                            html += `<p style="color:#c33;"><strong>Override: </strong>Scheduled by breaking: ${assignment.overrideParams.join(', ')}</p>`;
+                        }
                         html += `</div>`;
                     });
+                    
                     html += `</div>`;
                 }
             });
@@ -1516,28 +1374,48 @@
             ];
             data.push(header);
 
-            Object.entries(lastSchedule).forEach(([day, dayObj]) => {
+            const allAssignments = [];
+            Object.values(lastSchedule).forEach(dayObj => {
                 dayObj.teams.forEach(teamSchedule => {
                     teamSchedule.assignments.forEach(assignment => {
-                        const assignedTeamData = assignment.assignedTeams.find(t => t.teamId === teamSchedule.team.id);
-                        const row = [
-                            new Date(dayObj.date).toLocaleDateString(),
-                            day,
-                            teamSchedule.team.teamName,
-                            teamSchedule.team.count,
-                            assignedTeamData.assignedTechs,
-                            new Date(assignment.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-                            new Date(assignment.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-                            assignment.location.siteId,
-                            assignment.location.address,
-                            assignment.location.scope,
-                            assignment.duration,
-                            assignedTeamData.driveInfo.minutes,
-                            assignedTeamData.driveInfo.miles,
-                            assignment.overrideParams.join(', ')
-                        ];
-                        data.push(row);
+                        const existingAssignment = allAssignments.find(a => 
+                             a.location.id === assignment.location.id && 
+                             a.day === assignment.day && 
+                             a.startDateTime.getTime() === assignment.startDateTime.getTime()
+                        );
+                        if (!existingAssignment) {
+                            allAssignments.push({
+                                ...assignment,
+                                assignedTeams: assignment.assignedTeams.map(at => ({
+                                    ...at,
+                                    teamName: technicians.find(t => t.id === at.teamId).teamName,
+                                    teamSize: technicians.find(t => t.id === at.teamId).count
+                                }))
+                            });
+                        }
                     });
+                });
+            });
+
+            allAssignments.forEach(assignment => {
+                 assignment.assignedTeams.forEach(teamData => {
+                    const row = [
+                        new Date(assignment.startDateTime).toLocaleDateString(),
+                        assignment.day,
+                        teamData.teamName,
+                        teamData.teamSize,
+                        teamData.assignedTechs,
+                        new Date(assignment.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        new Date(assignment.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        assignment.location.siteId,
+                        assignment.location.address,
+                        assignment.location.scope,
+                        assignment.duration,
+                        teamData.driveInfo.minutes,
+                        teamData.driveInfo.miles,
+                        assignment.overrideParams.join(', ')
+                    ];
+                    data.push(row);
                 });
             });
 
