@@ -133,6 +133,14 @@
                 </div>
                 <div id="technicianList" class="list-container"></div>
             </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Import Technician Data from CSV</h3>
+                </div>
+                <p style="margin-bottom: 10px; font-size: 14px; color: #555;">Paste comma-separated data below. Format: `Team Name,Base Location,Technician Address,Number of Technicians,Availability(Mon;Tue;...),Working Hours(08:00-17:00),Providers(Motive;Lytx;...)`</p>
+                <textarea id="csvData" rows="5" placeholder="Paste your CSV data here..."></textarea>
+                <button class="btn" style="margin-top: 10px;" onclick="importTechnicians()">Load Technicians</button>
+            </div>
         </div>
 
         <!-- Locations Section -->
@@ -436,6 +444,58 @@
                 cb.checked = selectedProviders.includes(cb.value);
             });
         }
+        
+        // --- New function to import technicians from CSV paste ---
+        function importTechnicians() {
+            const csvData = document.getElementById('csvData').value;
+            const lines = csvData.split('\n').filter(line => line.trim() !== '');
+            const newTechnicians = [];
+            let errors = [];
+
+            lines.forEach((line, index) => {
+                const parts = line.split(',');
+                if (parts.length < 7) {
+                    errors.push(`Row ${index + 1}: Not enough data. Expected 7 columns.`);
+                    return;
+                }
+
+                const [teamName, location, address, count, days, hours, providers] = parts.map(p => p.trim());
+                const [startTime, endTime] = hours.split('-').map(h => h.trim());
+
+                if (!teamName || !location || !address || !count || !days || !hours || !providers) {
+                    errors.push(`Row ${index + 1}: Missing required data.`);
+                    return;
+                }
+                if (technicians.some(t => t.teamName === teamName) || newTechnicians.some(t => t.teamName === teamName)) {
+                    errors.push(`Row ${index + 1}: Duplicate Team Name/ID.`);
+                    return;
+                }
+
+                newTechnicians.push({
+                    id: Date.now() + index, // Unique ID
+                    teamName,
+                    location,
+                    address,
+                    count: parseInt(count),
+                    days: days.split(';').map(d => d.trim()),
+                    startTime,
+                    endTime,
+                    specializations: [], // Legacy field
+                    providers: providers.split(';').map(p => p.trim())
+                });
+            });
+
+            if (errors.length > 0) {
+                alert("Please fix the following errors in your data:\n" + errors.join("\n"));
+                return;
+            }
+
+            technicians = [...technicians, ...newTechnicians];
+            updateTechnicianList();
+            saveAllData();
+            document.getElementById('csvData').value = '';
+            alert(`${newTechnicians.length} technician teams successfully imported.`);
+        }
 
         // --- Scope List always updates ---
         function updateScopeList() {
@@ -494,14 +554,14 @@
             });
         }
         function addTechnician() {
-            const location = document.getElementById('techLocation').value.trim();
-            const address = document.getElementById('techAddress').value.trim();
-            const count = parseInt(document.getElementById('techCount').value);
-            const teamName = document.getElementById('techTeamName').value.trim();
+            const location = document.getElementById('techLocation')?.value.trim();
+            const address = document.getElementById('techAddress')?.value.trim();
+            const count = parseInt(document.getElementById('techCount')?.value);
+            const teamName = document.getElementById('techTeamName')?.value.trim();
             const days = getSelectedTechDays();
-            const startTime = document.getElementById('techStartTime').value;
-            const endTime = document.getElementById('techEndTime').value;
-            const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim()).filter(Boolean);
+            const startTime = document.getElementById('techStartTime')?.value;
+            const endTime = document.getElementById('techEndTime')?.value;
+            const specializations = document.getElementById('techSpecializations')?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
             const providers = getSelectedProviders('techProviderCheckboxes');
 
             let errors = [];
@@ -535,17 +595,17 @@
             saveAllData();
         }
         function clearTechForm() {
-            document.getElementById('techLocation').value = '';
-            document.getElementById('techAddress').value = '';
-            document.getElementById('techCount').value = '1';
-            document.getElementById('techTeamName').value = '';
-            document.getElementById('techSpecializations').value = '';
+            if (document.getElementById('techLocation')) document.getElementById('techLocation').value = '';
+            if (document.getElementById('techAddress')) document.getElementById('techAddress').value = '';
+            if (document.getElementById('techCount')) document.getElementById('techCount').value = '1';
+            if (document.getElementById('techTeamName')) document.getElementById('techTeamName').value = '';
+            if (document.getElementById('techSpecializations')) document.getElementById('techSpecializations').value = '';
             setSelectedTechDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
             setSelectedProviders('techProviderCheckboxes', []);
-            document.getElementById('techStartTime').value = '08:00';
-            document.getElementById('techEndTime').value = '17:00';
+            if (document.getElementById('techStartTime')) document.getElementById('techStartTime').value = '08:00';
+            if (document.getElementById('techEndTime')) document.getElementById('techEndTime').value = '17:00';
             editTechId = null;
-            document.getElementById('addTechBtn').textContent = "Add Technician Team";
+            if (document.getElementById('addTechBtn')) document.getElementById('addTechBtn').textContent = "Add Technician Team";
         }
         function updateTechnicianList() {
             const list = document.getElementById('technicianList');
@@ -576,18 +636,18 @@
         function editTechnician(id) {
             const tech = technicians.find(t => t.id === id);
             if (!tech) return;
-            document.getElementById('techLocation').value = tech.location;
-            document.getElementById('techAddress').value = tech.address;
-            document.getElementById('techCount').value = tech.count;
-            document.getElementById('techTeamName').value = tech.teamName;
-            document.getElementById('techSpecializations').value = tech.specializations.join(', ');
+            if (document.getElementById('techLocation')) document.getElementById('techLocation').value = tech.location;
+            if (document.getElementById('techAddress')) document.getElementById('techAddress').value = tech.address;
+            if (document.getElementById('techCount')) document.getElementById('techCount').value = tech.count;
+            if (document.getElementById('techTeamName')) document.getElementById('techTeamName').value = tech.teamName;
+            if (document.getElementById('techSpecializations')) document.getElementById('techSpecializations').value = tech.specializations?.join(', ') || '';
             setSelectedTechDays(tech.days);
-            setSelectedProviders('techProviderCheckboxes', tech.providers);
-            document.getElementById('techStartTime').value = tech.startTime;
-            document.getElementById('techEndTime').value = tech.endTime;
+            setSelectedProviders('techProviderCheckboxes', tech.providers || []);
+            if (document.getElementById('techStartTime')) document.getElementById('techStartTime').value = tech.startTime;
+            if (document.getElementById('techEndTime')) document.getElementById('techEndTime').value = tech.endTime;
             editTechId = id;
-            document.getElementById('addTechBtn').textContent = "Save Technician Team";
-            document.getElementById('techLocation').focus();
+            if (document.getElementById('addTechBtn')) document.getElementById('addTechBtn').textContent = "Save Technician Team";
+            if (document.getElementById('techLocation')) document.getElementById('techLocation').focus();
         }
         function removeTechnician(id) {
             technicians = technicians.filter(t => t.id !== id);
@@ -597,14 +657,14 @@
 
         // --- Location CRUD ---
         function addLocation() {
-            const siteId = document.getElementById('locationId').value.trim();
-            const name = document.getElementById('locationName').value.trim();
-            const address = document.getElementById('locationAddress').value.trim();
-            const scope = document.getElementById('locationScope').value.trim();
-            const priority = document.getElementById('locationPriority').value;
-            const availability = document.getElementById('locationAvailability').value.trim();
-            const contact = document.getElementById('locationContact').value.trim();
-            const notes = document.getElementById('locationNotes').value.trim();
+            const siteId = document.getElementById('locationId')?.value.trim();
+            const name = document.getElementById('locationName')?.value.trim();
+            const address = document.getElementById('locationAddress')?.value.trim();
+            const scope = document.getElementById('locationScope')?.value.trim();
+            const priority = document.getElementById('locationPriority')?.value;
+            const availability = document.getElementById('locationAvailability')?.value.trim();
+            const contact = document.getElementById('locationContact')?.value.trim();
+            const notes = document.getElementById('locationNotes')?.value.trim();
             const providers = getSelectedProviders('locationProviderCheckboxes');
 
             let errors = [];
@@ -676,18 +736,18 @@
         function editLocation(id) {
             const loc = locations.find(l => l.id === id);
             if (!loc) return;
-            document.getElementById('locationId').value = loc.siteId;
-            document.getElementById('locationName').value = loc.name;
-            document.getElementById('locationAddress').value = loc.address;
-            document.getElementById('locationScope').value = loc.scope;
-            document.getElementById('locationPriority').value = loc.priority;
-            document.getElementById('locationAvailability').value = loc.availability;
-            document.getElementById('locationContact').value = loc.contact;
-            document.getElementById('locationNotes').value = loc.notes;
-            setSelectedProviders('locationProviderCheckboxes', loc.providers);
+            if (document.getElementById('locationId')) document.getElementById('locationId').value = loc.siteId;
+            if (document.getElementById('locationName')) document.getElementById('locationName').value = loc.name;
+            if (document.getElementById('locationAddress')) document.getElementById('locationAddress').value = loc.address;
+            if (document.getElementById('locationScope')) document.getElementById('locationScope').value = loc.scope;
+            if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = loc.priority;
+            if (document.getElementById('locationAvailability')) document.getElementById('locationAvailability').value = loc.availability;
+            if (document.getElementById('locationContact')) document.getElementById('locationContact').value = loc.contact;
+            if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = loc.notes;
+            setSelectedProviders('locationProviderCheckboxes', loc.providers || []);
             editLocationId = id;
-            document.querySelector('button[onclick="addLocation()"]').textContent = "Save Location";
-            document.getElementById('locationId').focus();
+            if (document.querySelector('button[onclick="addLocation()"]')) document.querySelector('button[onclick="addLocation()"]').textContent = "Save Location";
+            if (document.getElementById('locationId')) document.getElementById('locationId').focus();
         }
         function removeLocation(id) {
             locations = locations.filter(l => l.id !== id);
@@ -696,27 +756,27 @@
             saveAllData();
         }
         function clearLocationForm() {
-            document.getElementById('locationId').value = '';
-            document.getElementById('locationName').value = '';
-            document.getElementById('locationAddress').value = '';
-            document.getElementById('locationScope').value = '';
-            document.getElementById('locationAvailability').value = '';
-            document.getElementById('locationContact').value = '';
-            document.getElementById('locationNotes').value = '';
-            document.getElementById('locationPriority').value = 'Medium';
+            if (document.getElementById('locationId')) document.getElementById('locationId').value = '';
+            if (document.getElementById('locationName')) document.getElementById('locationName').value = '';
+            if (document.getElementById('locationAddress')) document.getElementById('locationAddress').value = '';
+            if (document.getElementById('locationScope')) document.getElementById('locationScope').value = '';
+            if (document.getElementById('locationAvailability')) document.getElementById('locationAvailability').value = '';
+            if (document.getElementById('locationContact')) document.getElementById('locationContact').value = '';
+            if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = '';
+            if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = 'Medium';
             setSelectedProviders('locationProviderCheckboxes', []);
             editLocationId = null;
-            document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
+            if (document.querySelector('button[onclick="addLocation()"]')) document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             currentLocationScopes = [];
             if (typeof renderLocationScopeList === "function") renderLocationScopeList();
         }
 
         // --- Scope CRUD ---
         function addScope() {
-            const type = document.getElementById('scopeType').value.trim();
-            const duration = parseInt(document.getElementById('scopeDuration').value);
-            const techCount = parseInt(document.getElementById('scopeTechCount').value);
-            const complexity = parseFloat(document.getElementById('scopeComplexity').value);
+            const type = document.getElementById('scopeType')?.value.trim();
+            const duration = parseInt(document.getElementById('scopeDuration')?.value);
+            const techCount = parseInt(document.getElementById('scopeTechCount')?.value);
+            const complexity = parseFloat(document.getElementById('scopeComplexity')?.value);
 
             let errors = [];
             if (!type) errors.push("Scope Type is required.");
@@ -738,10 +798,10 @@
             saveAllData();
         }
         function clearScopeForm() {
-            document.getElementById('scopeType').value = '';
-            document.getElementById('scopeDuration').value = '';
-            document.getElementById('scopeTechCount').value = '1';
-            document.getElementById('scopeComplexity').value = '1';
+            if (document.getElementById('scopeType')) document.getElementById('scopeType').value = '';
+            if (document.getElementById('scopeDuration')) document.getElementById('scopeDuration').value = '';
+            if (document.getElementById('scopeTechCount')) document.getElementById('scopeTechCount').value = '1';
+            if (document.getElementById('scopeComplexity')) document.getElementById('scopeComplexity').value = '1';
         }
         function updateScopeList() {
             const list = document.getElementById('scopeList');
@@ -869,7 +929,7 @@
             }
             document.getElementById('scheduleOutput').innerHTML = '<h3>Generating schedule, please wait...</h3>';
 
-            const strategy = document.getElementById('optimizationStrategy').value;
+            const strategy = document.getElementById('optimizationStrategy')?.value;
             let sortedLocations = [...locations];
             if (strategy === 'priority') {
                 const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
@@ -879,8 +939,8 @@
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             let unassignedLocations = [];
             
-            const installWindowStart = document.getElementById('installWindowStart').value;
-            const installWindowEnd = document.getElementById('installWindowEnd').value;
+            const installWindowStart = document.getElementById('installWindowStart')?.value;
+            const installWindowEnd = document.getElementById('installWindowEnd')?.value;
             const windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
             const windowEnd = installWindowEnd ? new Date(installWindowEnd + "T23:59:59") : null;
 
@@ -918,8 +978,8 @@
                 if (isLocationAvailable && (!windowStart || currentDate >= windowStart) && (!windowEnd || currentDate <= windowEnd)) {
                     
                     const eligibleTeams = technicians.filter(tech => {
-                        const hasProviderMatch = location.providers.every(provider => tech.providers.includes(provider));
-                        return tech.days.includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0 && hasProviderMatch;
+                        const hasProviderMatch = (location.providers || []).every(provider => (tech.providers || []).includes(provider));
+                        return (tech.days || []).includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0 && hasProviderMatch;
                     });
 
                     if (eligibleTeams.length > 0) {
@@ -1046,8 +1106,8 @@
             }
             document.getElementById('scheduleOutput').innerHTML = '<h3>Overriding parameters for unassigned locations...</h3>';
 
-            const installWindowStart = document.getElementById('installWindowStart').value;
-            const installWindowEnd = document.getElementById('installWindowEnd').value;
+            const installWindowStart = document.getElementById('installWindowStart')?.value;
+            const installWindowEnd = document.getElementById('installWindowEnd')?.value;
             let windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
             let windowEnd = installWindowEnd ? new Date(installWindowEnd + "T23:59:59") : null;
 
@@ -1116,11 +1176,11 @@
                         const techsToAssign = Math.min(availableTechsInTeam, requiredTechs - assignedTechCount);
 
                         if(techsToAssign > 0) {
-                            const hasProviderMatch = location.providers.every(provider => team.providers.includes(provider));
+                            const hasProviderMatch = (location.providers || []).every(provider => (team.providers || []).includes(provider));
                             if (!hasProviderMatch) {
                                 paramsBroken.push("Provider Certification");
                             }
-                            if (!team.days.includes(dayOfWeek)) {
+                            if (!(team.days || []).includes(dayOfWeek)) {
                                 paramsBroken.push("Team Availability");
                             }
 
@@ -1291,7 +1351,7 @@
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
-                        html += `<p>🔌 Providers: ${assignment.location.providers.join(', ')}</p>`;
+                        html += `<p>🔌 Providers: ${(assignment.location.providers || []).join(', ') || 'None'}</p>`;
                         
                         if (assignment.assignedTeams.length > 0) {
                             const primaryTeam = assignment.assignedTeams[0];
@@ -1477,7 +1537,7 @@
                         assignment.duration,
                         teamData.driveInfo.minutes,
                         teamData.driveInfo.miles,
-                        assignment.overrideParams.join(', ')
+                        (assignment.overrideParams || []).join(', ')
                     ];
                     data.push(row);
                 });
