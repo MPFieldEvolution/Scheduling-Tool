@@ -633,12 +633,16 @@
         return date;
     }
 
+    // Automatically calculate buffer: 10% of drive time, minimum 5min, maximum 30min
+    function calculateAutoBuffer(driveTime) {
+        return Math.max(5, Math.min(30, Math.round(driveTime * 0.1 + 5)));
+    }
+
     async function generateSchedule() {
         if (technicians.length === 0 || locations.length === 0) {
             alert('Please add at least one technician team and one location');
             return;
         }
-        const bufferTime = parseInt(document.getElementById('bufferTime').value);
         const strategy = document.getElementById('optimizationStrategy').value;
         let sortedLocations = [...locations];
         if (strategy === 'priority') {
@@ -651,7 +655,6 @@
 
         // Start from today for scheduling
         const today = new Date();
-        // Find the next Monday (or today if today is Monday)
         let weekStart = new Date(today);
         weekStart.setHours(0,0,0,0);
         if (weekStart.getDay() !== 1) { // 1 = Monday
@@ -672,13 +675,11 @@
         // For each day, for each tech, assign jobs
         for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
             const day = days[dayIdx];
-            // Calculate the actual date for this day in the week
             const dayDate = new Date(weekStart);
             dayDate.setDate(weekStart.getDate() + dayIdx);
             schedule[day] = { date: dayDate, teams: [] };
             const availableTechs = technicians.filter(tech => tech.days.includes(day));
             for (const tech of availableTechs) {
-                // Use the actual date for this day
                 const startTime = new Date(dayDate);
                 const [startHour, startMin] = tech.startTime.split(':').map(Number);
                 startTime.setHours(startHour, startMin, 0, 0);
@@ -687,13 +688,13 @@
                 endTime.setHours(endHour, endMin, 0, 0);
 
                 let currentTime = new Date(startTime);
-                let lastAddress = tech.address || tech.location || ""; // fallback if no address
+                let lastAddress = tech.address || tech.location || "";
                 const assignments = [];
                 let i = 0;
                 while (i < unassignedLocations.length && currentTime < endTime) {
                     const location = unassignedLocations[i];
-                    // Calculate drive time from last job (or tech base) to this location
                     const driveTime = await getDriveTimeCached({address: lastAddress}, location);
+                    const bufferTime = calculateAutoBuffer(driveTime);
                     const jobDuration = calculateJobDuration(location.scope);
                     const totalTime = driveTime + jobDuration + bufferTime;
                     const jobEndTime = new Date(currentTime.getTime() + totalTime * 60000);
@@ -703,7 +704,8 @@
                             startDateTime: new Date(currentTime),
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
-                            driveTime: driveTime
+                            driveTime: driveTime,
+                            bufferTime: bufferTime
                         });
                         currentTime = jobEndTime;
                         lastAddress = location.address;
@@ -724,7 +726,7 @@
         displayMetrics(schedule, unassignedLocations);
     }
 
-    // --- Update displaySchedule to show date and time clearly ---
+    // --- Update displaySchedule to show date, time, drive, and buffer clearly ---
     function displaySchedule(schedule, unassigned) {
         const output = document.getElementById('scheduleOutput');
         let html = '<h3>📅 Optimized Installation Schedule</h3>';
@@ -743,7 +745,7 @@
                         html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
-                        html += `<p>🚗 Est. Drive: ${assignment.driveTime !== undefined ? assignment.driveTime + ' min' : 'N/A'}</p>`;
+                        html += `<p>🚗 Est. Drive: ${assignment.driveTime !== undefined ? assignment.driveTime + ' min' : 'N/A'} | 🕒 Buffer: ${assignment.bufferTime} min</p>`;
                         html += `</div>`;
                     });
                     html += `</div>`;
