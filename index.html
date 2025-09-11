@@ -588,6 +588,17 @@
             updateScheduleTabContent();
         });
 
+        // --- Helper function to format 24h time to 12h AM/PM ---
+        function formatTime(timeString) {
+            if (!timeString) return '';
+            const [hour, minute] = timeString.split(':');
+            const h = parseInt(hour, 10);
+            const m = parseInt(minute, 10);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const formattedHour = h % 12 === 0 ? 12 : h % 12;
+            return `${formattedHour}:${m.toString().padStart(2, '0')} ${ampm}`;
+        }
+
         // --- Technician CRUD ---
         function getSelectedTechDays() {
             const container = document.getElementById('techDaysCheckboxes');
@@ -673,7 +684,7 @@
                         <p><strong>Address:</strong> ${tech.address || '-'}</p>
                         <p><strong>Team Size:</strong> ${tech.count} technicians</p>
                         <p><strong>Available:</strong> ${tech.days.join(', ')}</p>
-                        <p><strong>Hours:</strong> ${tech.startTime} - ${tech.endTime}</p>
+                        <p><strong>Hours:</strong> ${formatTime(tech.startTime)} - ${formatTime(tech.endTime)}</p>
                         <p><strong>Certifications:</strong> ${(tech.providers || []).join(', ') || 'None'}</p>
                     </div>
                 </div>
@@ -786,7 +797,7 @@
                         <p><strong>Address:</strong> ${loc.address}</p>
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
-                        <p><strong>Availability:</strong> ${(loc.days || []).join(', ')} (${loc.startTime} - ${loc.endTime})</p>
+                        <p><strong>Availability:</strong> ${(loc.days || []).join(', ')} (${formatTime(loc.startTime)} - ${formatTime(loc.endTime)})</p>
                         <p><strong>Providers:</strong> ${(projectProviders || []).join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
@@ -1036,7 +1047,7 @@
                 let didScheduleThisDay = false;
 
                 const locationsToProcessThisDay = [...locationQueue];
-                locationQueue = [];
+                locationQueue = []; // Reset queue for next pass
 
                 for (const location of locationsToProcessThisDay) {
                     
