@@ -247,10 +247,6 @@ window.addEventListener('DOMContentLoaded', function() {
                         <input type="number" id="driveTime" value="30" min="0">
                     </div>
                     <div class="form-group">
-                        <label>Buffer Time Between Jobs (minutes)</label>
-                        <input type="number" id="bufferTime" value="15" min="0">
-                    </div>
-                    <div class="form-group">
                         <label>Optimization Strategy</label>
                         <select id="optimizationStrategy">
                             <option value="efficiency">Maximum Efficiency</option>
@@ -260,7 +256,8 @@ window.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div style="color:#888; font-size:13px; margin-bottom:10px;">
-                    <em>Drive time is now automatically estimated based on technician and location addresses.</em>
+                    <em>Drive time is now automatically estimated based on technician and location addresses.<br>
+                    Buffer time is now always automated (minimum 15 minutes before each job).</em>
                 </div>
                 <button class="btn" onclick="generateSchedule()">🚀 Generate Optimal Schedule</button>
             </div>
