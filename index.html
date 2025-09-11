@@ -16,7 +16,7 @@
         .section { display: none; animation: fadeIn 0.5s;}
         .section.active { display: block;}
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);}}
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;}
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, min-content); grid-auto-rows: min-content; gap: 20px; margin-bottom: 20px;}
         .form-group { display: flex; flex-direction: column;}
         label { font-weight: 600; color: #555; margin-bottom: 8px; font-size: 14px;}
         input, select, textarea { padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; transition: all 0.3s;}
@@ -46,35 +46,48 @@
         .metric-label { font-size: 14px; opacity: 0.9;}
         .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
         .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
+        .project-list-container {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .project-item:hover {
+            background-color: #f8f8f8;
+        }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
-    <script>
-window.addEventListener('DOMContentLoaded', function() {
-    // Technician Address Autocomplete
-    if (window.google && window.google.maps && window.google.maps.places) {
-        const techInput = document.getElementById('techAddress');
-        const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
-        techAutocomplete.setFields(['formatted_address']);
-        techAutocomplete.addListener('place_changed', function() {
-            const place = techAutocomplete.getPlace();
-            if (place && place.formatted_address) {
-                techInput.value = place.formatted_address;
-            }
-        });
-
-        // Location Address Autocomplete
-        const locInput = document.getElementById('locationAddress');
-        const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
-        locAutocomplete.setFields(['formatted_address']);
-        locAutocomplete.addListener('place_changed', function() {
-            const place = locAutocomplete.getPlace();
-            if (place && place.formatted_address) {
-                locInput.value = place.formatted_address;
-            }
-        });
-    }
-});
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        window.firebase = {
+            initializeApp,
+            getAuth,
+            signInAnonymously,
+            signInWithCustomToken,
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            collection,
+            query,
+            where,
+            getDocs,
+            onSnapshot,
+            updateDoc,
+            deleteDoc
+        };
     </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
+    <!-- SheetJS for XLSX export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -269,6 +282,20 @@ window.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <button class="btn" onclick="generateSchedule()">🚀 Generate Optimal Schedule</button>
                 <button class="btn btn-secondary" id="overrideBtn" onclick="overrideUnassignedSchedule()" style="margin-left:10px; display:none;">Override Parameters</button>
+                <button class="btn" onclick="exportToXLSX()" style="margin-left: 10px;">Export to XLSX</button>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Project Management</h3>
+                </div>
+                <div class="form-grid" style="grid-template-columns: minmax(200px, 1fr) auto auto;">
+                    <input type="text" id="projectName" placeholder="Enter project name to save...">
+                    <button class="btn" onclick="saveProject()">Save Project</button>
+                    <button class="btn btn-secondary" onclick="loadProject()">Load Project</button>
+                </div>
+                <div id="projectList" class="project-list-container">
+                    <p style="color:#888; text-align: center;">Loading saved projects...</p>
+                </div>
             </div>
             <div class="metrics" id="metrics"></div>
             <div class="schedule-output" id="scheduleOutput">
@@ -277,6 +304,11 @@ window.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
     <script>
+        // Global variables for Firebase
+        let db;
+        let auth;
+        let userId;
+
         // --- Data and UI Logic ---
         let technicians = [];
         let locations = [];
@@ -292,44 +324,178 @@ window.addEventListener('DOMContentLoaded', function() {
         let lastSchedule = {};
         let lastAssignments = [];
 
-        // --- Persistent Storage ---
+        // --- Persistent Storage using Firestore ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = {};
+        if (typeof __firebase_config !== 'undefined') {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } catch (e) {
+                console.error("Error parsing __firebase_config:", e);
+            }
+        }
+
+        async function setupFirebase() {
+            if (window.firebase) {
+                const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore } = window.firebase;
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (error) {
+                        console.error("Error signing in with custom token:", error);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                listenForProjects();
+            } else {
+                console.error("Firebase SDK not loaded.");
+            }
+        }
+
+        async function saveProject() {
+            if (!db || !userId) {
+                alert('Firebase not initialized. Cannot save.');
+                return;
+            }
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) {
+                alert('Please enter a project name.');
+                return;
+            }
+            const projectData = {
+                technicians,
+                locations,
+                scopes,
+                timestamp: new Date()
+            };
+            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${projectName}`);
+            try {
+                await window.firebase.setDoc(projectRef, projectData, { merge: true });
+                alert(`Project '${projectName}' saved successfully!`);
+            } catch (e) {
+                console.error("Error saving project: ", e);
+                alert("Failed to save project. Check console for details.");
+            }
+        }
+
+        async function loadProject() {
+            if (!db || !userId) {
+                alert('Firebase not initialized. Cannot load.');
+                return;
+            }
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) {
+                alert('Please enter a project name to load.');
+                return;
+            }
+            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${projectName}`);
+            try {
+                const docSnap = await window.firebase.getDoc(projectRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    technicians = data.technicians;
+                    locations = data.locations;
+                    scopes = data.scopes;
+                    updateTechnicianList();
+                    updateLocationList();
+                    updateScopeList();
+                    updateScheduleTabContent();
+                    alert(`Project '${projectName}' loaded successfully!`);
+                } else {
+                    alert(`No project found with the name '${projectName}'.`);
+                }
+            } catch (e) {
+                console.error("Error loading project: ", e);
+                alert("Failed to load project. Check console for details.");
+            }
+        }
+        
+        async function listenForProjects() {
+            if (!db || !userId) return;
+            const projectListDiv = document.getElementById('projectList');
+            const q = window.firebase.collection(db, `artifacts/${appId}/users/${userId}/projects`);
+            window.firebase.onSnapshot(q, (querySnapshot) => {
+                const projects = [];
+                querySnapshot.forEach((doc) => {
+                    projects.push(doc.id);
+                });
+                renderProjectList(projects);
+            }, (error) => {
+                console.error("Error listening to projects:", error);
+                projectListDiv.innerHTML = `<p style="color:#c33; text-align: center;">Error loading projects. Check console.</p>`;
+            });
+        }
+        
+        function renderProjectList(projects) {
+            const listDiv = document.getElementById('projectList');
+            if (projects.length === 0) {
+                listDiv.innerHTML = '<p style="color:#888; text-align: center;">No saved projects yet.</p>';
+                return;
+            }
+            listDiv.innerHTML = `
+                <p style="font-weight: bold; margin-bottom: 5px;">Saved Projects:</p>
+                ${projects.map(name => `
+                    <div class="project-item">
+                        <span>${name}</span>
+                        <div>
+                            <button class="btn btn-secondary" onclick="document.getElementById('projectName').value='${name}'; loadProject();">Load</button>
+                            <button class="btn btn-danger" onclick="deleteProject('${name}')">Delete</button>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+        
+        async function deleteProject(name) {
+             if (!db || !userId) {
+                alert('Firebase not initialized. Cannot delete.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to delete project '${name}'?`)) {
+                return;
+            }
+            const projectRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/projects/${name}`);
+            try {
+                await window.firebase.deleteDoc(projectRef);
+                alert(`Project '${name}' deleted.`);
+            } catch (e) {
+                console.error("Error deleting project: ", e);
+                alert("Failed to delete project. Check console for details.");
+            }
+        }
+
+        // --- Data Persistence (using Firestore now) ---
         function saveAllData() {
-            localStorage.setItem('technicians', JSON.stringify(technicians));
-            localStorage.setItem('locations', JSON.stringify(locations));
-            localStorage.setItem('scopes', JSON.stringify(scopes));
-            localStorage.setItem('currentTab', getCurrentTabName());
+            // No longer needed for general data, as projects are explicitly saved
         }
         function loadAllData() {
-            const techs = localStorage.getItem('technicians');
-            const locs = localStorage.getItem('locations');
-            const scps = localStorage.getItem('scopes');
-            if (techs) technicians = JSON.parse(techs);
-            if (locs) locations = JSON.parse(locs);
-            if (scps) scopes = JSON.parse(scps);
+            // No longer needed for general data, as projects are explicitly loaded
         }
         function getCurrentTabName() {
             const activeTab = document.querySelector('.tab.active');
             if (!activeTab) return 'technicians';
-            return activeTab.textContent.trim().toLowerCase().replace(/\s/g, '');
+            return activeTab.getAttribute('data-tab');
         }
         function setCurrentTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            let found = false;
-            document.querySelectorAll('.tab').forEach(btn => {
-                if (btn.textContent.replace(/\s/g, '').toLowerCase().includes(tabName)) {
-                    btn.classList.add('active');
-                    found = true;
-                }
-            });
-            if (!found) document.querySelector('.tab').classList.add('active');
-            const section = document.getElementById(tabName) || document.querySelector('.section');
-            if (section) section.classList.add('active');
-            // Always update content when switching tabs
-            if (tabName === 'scopetemplates' || tabName === 'scopes') {
+            const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+            if (tabBtn) {
+                tabBtn.classList.add('active');
+                const section = document.getElementById(tabName);
+                if (section) section.classList.add('active');
+            }
+            if (tabName === 'scopes') {
                 updateScopeList();
             }
-            if (tabName === 'generateschedule' || tabName === 'schedule') {
+            if (tabName === 'schedule') {
                 updateScheduleTabContent();
             }
         }
@@ -358,12 +524,9 @@ window.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             });
-
             // Restore tab on load
             const savedTab = localStorage.getItem('currentTab') || 'technicians';
-            const tabBtn = document.querySelector(`.tab[data-tab="${savedTab}"]`);
-            if (tabBtn) tabBtn.click();
-            else document.querySelector('.tab').click();
+            setCurrentTab(savedTab);
         });
 
         // --- Scope List always updates ---
@@ -401,7 +564,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         // --- Initialization ---
         window.addEventListener('DOMContentLoaded', function() {
-            loadAllData();
+            setupFirebase();
             updateTechnicianList();
             updateLocationList();
             updateScopeList();
@@ -414,7 +577,6 @@ window.addEventListener('DOMContentLoaded', function() {
         });
 
         // --- Technician CRUD ---
-        // Specialization is now a list of providers/certifications
         function getSelectedTechDays() {
             return Array.from(document.querySelectorAll('#techDaysCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
         }
@@ -431,10 +593,8 @@ window.addEventListener('DOMContentLoaded', function() {
             const days = getSelectedTechDays();
             const startTime = document.getElementById('techStartTime').value;
             const endTime = document.getElementById('techEndTime').value;
-            // Specializations: comma-separated provider/certification names
             const specializations = document.getElementById('techSpecializations').value.split(',').map(s => s.trim()).filter(Boolean);
 
-            // --- Robust Data Validation ---
             let errors = [];
             if (!location) errors.push("Base Location is required.");
             if (!address) errors.push("Technician Address is required.");
@@ -442,7 +602,6 @@ window.addEventListener('DOMContentLoaded', function() {
             if (!teamName) errors.push("Team Name/ID is required.");
             if (days.length === 0) errors.push("At least one availability day must be selected.");
             if (!startTime || !endTime) errors.push("Working hours are required.");
-            // Duplicate team name check
             if (technicians.some(t => t.teamName === teamName && t.id !== editTechId)) errors.push("Team Name/ID must be unique.");
 
             if (errors.length > 0) {
@@ -453,37 +612,16 @@ window.addEventListener('DOMContentLoaded', function() {
             if (editTechId !== null) {
                 const idx = technicians.findIndex(t => t.id === editTechId);
                 if (idx !== -1) {
-                    technicians[idx] = {
-                        id: editTechId,
-                        location,
-                        address,
-                        count,
-                        teamName,
-                        days,
-                        startTime,
-                        endTime,
-                        specializations
-                    };
+                    technicians[idx] = { id: editTechId, location, address, count, teamName, days, startTime, endTime, specializations };
                 }
                 editTechId = null;
                 document.getElementById('addTechBtn').textContent = "Add Technician Team";
             } else {
-                const tech = {
-                    id: Date.now(),
-                    location,
-                    address,
-                    count,
-                    teamName,
-                    days,
-                    startTime,
-                    endTime,
-                    specializations
-                };
+                const tech = { id: Date.now(), location, address, count, teamName, days, startTime, endTime, specializations };
                 technicians.push(tech);
             }
             updateTechnicianList();
             clearTechForm();
-            saveAllData();
         }
         function clearTechForm() {
             document.getElementById('techLocation').value = '';
@@ -541,7 +679,6 @@ window.addEventListener('DOMContentLoaded', function() {
         function removeTechnician(id) {
             technicians = technicians.filter(t => t.id !== id);
             updateTechnicianList();
-            saveAllData();
         }
 
         // --- Location CRUD ---
@@ -555,18 +692,12 @@ window.addEventListener('DOMContentLoaded', function() {
             const contact = document.getElementById('locationContact').value.trim();
             const notes = document.getElementById('locationNotes').value.trim();
 
-            // --- Robust Data Validation ---
             let errors = [];
             if (!siteId) errors.push("Site ID is required.");
             if (!address) errors.push("Full Address is required.");
             if (!scope) errors.push("Scope of Work is required.");
-            // Duplicate site ID check
             if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) errors.push("Site ID must be unique.");
 
-            // Validate address with Google Places (if possible)
-            // (Optional: could use autocomplete's place_changed event for stricter validation)
-
-            // Validate scope types exist
             const scopeItems = parseScope(scope);
             const missingScopes = scopeItems.filter(item =>
                 !scopes.some(s =>
@@ -585,41 +716,18 @@ window.addEventListener('DOMContentLoaded', function() {
             }
 
             if (editLocationId !== null) {
-                // Edit mode: update existing location
                 const idx = locations.findIndex(l => l.id === editLocationId);
                 if (idx !== -1) {
-                    locations[idx] = {
-                        id: editLocationId,
-                        siteId,
-                        name,
-                        address,
-                        scope,
-                        priority,
-                        availability,
-                        contact,
-                        notes
-                    };
+                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes };
                 }
                 editLocationId = null;
                 document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             } else {
-                // Add mode: add new location
-                const location = {
-                    id: Date.now(),
-                    siteId,
-                    name,
-                    address,
-                    scope,
-                    priority,
-                    availability,
-                    contact,
-                    notes
-                };
+                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes };
                 locations.push(location);
             }
             updateLocationList();
             clearLocationForm();
-            saveAllData();
         }
         function updateLocationList() {
             const list = document.getElementById('locationList');
@@ -666,7 +774,6 @@ window.addEventListener('DOMContentLoaded', function() {
             locations = locations.filter(l => l.id !== id);
             updateLocationList();
             clearLocationForm();
-            saveAllData();
         }
         function clearLocationForm() {
             document.getElementById('locationId').value = '';
@@ -690,13 +797,11 @@ window.addEventListener('DOMContentLoaded', function() {
             const techCount = parseInt(document.getElementById('scopeTechCount').value);
             const complexity = parseFloat(document.getElementById('scopeComplexity').value);
 
-            // --- Robust Data Validation ---
             let errors = [];
             if (!type) errors.push("Scope Type is required.");
             if (!duration || duration < 1) errors.push("Duration per Unit must be at least 1.");
             if (!techCount || techCount < 1) errors.push("Required Tech Count must be at least 1.");
             if (!complexity || complexity < 1) errors.push("Complexity Factor must be at least 1.");
-            // Duplicate scope type check
             if (scopes.some(s => s.type.toLowerCase() === type.toLowerCase())) errors.push("Scope Type must be unique.");
 
             if (errors.length > 0) {
@@ -704,18 +809,11 @@ window.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const scope = {
-                id: Date.now(),
-                type,
-                duration,
-                techCount,
-                complexity
-            };
+            const scope = { id: Date.now(), type, duration, techCount, complexity };
 
             scopes.push(scope);
             updateScopeList();
             clearScopeForm();
-            saveAllData();
         }
         function clearScopeForm() {
             document.getElementById('scopeType').value = '';
@@ -742,7 +840,6 @@ window.addEventListener('DOMContentLoaded', function() {
         function removeScope(id) {
             scopes = scopes.filter(s => s.id !== id);
             updateScopeList();
-            saveAllData();
         }
 
         // --- Helper: Parse scope string into items ---
@@ -753,10 +850,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 const match = part.trim().match(/(\d+)\s*(.+)/);
                 if (match) {
                     const [_, quantity, type] = match;
-                    items.push({
-                        quantity: parseInt(quantity),
-                        type: type.trim()
-                    });
+                    items.push({ quantity: parseInt(quantity), type: type.trim() });
                 }
             });
             return items;
@@ -852,7 +946,6 @@ window.addEventListener('DOMContentLoaded', function() {
             let unassignedLocations = [];
             let assignments = [];
 
-            // Get install window from user
             const installWindowStart = document.getElementById('installWindowStart').value;
             const installWindowEnd = document.getElementById('installWindowEnd').value;
             let windowStart = installWindowStart ? new Date(installWindowStart + "T00:00:00") : null;
@@ -871,7 +964,6 @@ window.addEventListener('DOMContentLoaded', function() {
                 return info;
             }
 
-            // Track tech resource usage per day
             const techUsage = {};
             for (const day of days) {
                 techUsage[day] = {};
@@ -886,11 +978,9 @@ window.addEventListener('DOMContentLoaded', function() {
                 const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
 
                 for (const day of availableDays) {
-                    // Find all techs available on this day
                     const availableTechs = technicians.filter(tech => tech.days.includes(day));
                     if (availableTechs.length === 0) continue;
 
-                    // Parse scope and get required tech count
                     const scopeItems = parseScope(location.scope);
                     let requiredTechs = 0;
                     let requiredSpecializations = [];
@@ -905,19 +995,15 @@ window.addEventListener('DOMContentLoaded', function() {
                         }
                     });
 
-                    // Find all tech teams that match specialization and have enough available techs
                     let candidateTechs = availableTechs.filter(tech => {
-                        // Check specialization
                         if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
                             if (!requiredSpecializations.every(req =>
                                 tech.specializations.some(sp => sp.toLowerCase() === req.toLowerCase())
                             )) return false;
                         }
-                        // Check available techs for this day
                         return (tech.count - techUsage[day][tech.id]) >= requiredTechs;
                     });
 
-                    // Try all candidate techs, schedule with the one with shortest drive
                     let bestTech = null;
                     let bestDrive = null;
                     let bestAssignment = null;
@@ -926,13 +1012,11 @@ window.addEventListener('DOMContentLoaded', function() {
                         const driveInfo = await getDriveInfoCached(tech, location);
                         const jobDuration = calculateJobDuration(location.scope);
 
-                        // Get tech working hours for this day
                         const dayDate = new Date(weekStart);
                         dayDate.setDate(weekStart.getDate() + days.indexOf(day));
                         if (windowStart && dayDate < windowStart) continue;
                         if (windowEnd && dayDate > windowEnd) continue;
 
-                        // Align job start/end with both tech and location time windows
                         const techStart = tech.startTime.split(':');
                         const techEnd = tech.endTime.split(':');
                         let startHour = Math.max(parseInt(techStart[0]), locStartHour);
@@ -948,11 +1032,9 @@ window.addEventListener('DOMContentLoaded', function() {
                         const jobStartTime = new Date(startTime);
                         const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
-                        // Only schedule if within tech's and location's working hours and install window
                         if (jobEndTime > endTime) continue;
                         if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) continue;
 
-                        // Use the tech with the shortest drive
                         if (!bestDrive || driveInfo.minutes < bestDrive.minutes) {
                             bestTech = tech;
                             bestDrive = driveInfo;
@@ -971,7 +1053,6 @@ window.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // If we found a tech, schedule the job and update tech usage
                     if (bestTech && bestAssignment) {
                         if (!schedule[day]) schedule[day] = { date: null, teams: [] };
                         if (!schedule[day].date) {
@@ -988,7 +1069,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         assignments.push(bestAssignment);
                         techUsage[day][bestTech.id] += requiredTechs;
                         scheduled = true;
-                        break; // Stop after scheduling this location
+                        break;
                     }
                 }
                 if (!scheduled) {
@@ -1004,7 +1085,6 @@ window.addEventListener('DOMContentLoaded', function() {
             displayMetrics(schedule, unassignedLocations);
         }
 
-        // --- Override Scheduling for unassigned locations only, showing all jobs ---
         async function overrideUnassignedSchedule() {
             if (!lastUnassignedLocations || lastUnassignedLocations.length === 0) {
                 alert('No unassigned locations to override.');
@@ -1031,7 +1111,6 @@ window.addEventListener('DOMContentLoaded', function() {
                 return info;
             }
 
-            // Track tech resource usage per day
             const techUsage = {};
             for (const day of days) {
                 techUsage[day] = {};
@@ -1041,18 +1120,15 @@ window.addEventListener('DOMContentLoaded', function() {
             }
 
             let allAssignments = [...lastAssignments];
-            let schedule = JSON.parse(JSON.stringify(lastSchedule)); // Deep copy
+            let schedule = JSON.parse(JSON.stringify(lastSchedule));
 
             for (const location of lastUnassignedLocations) {
                 let scheduled = false;
                 const availableDays = getLocationAvailableDays(location);
                 const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
 
-                // Try ALL days, not just availableDays, for override
                 for (const day of days) {
-                    // Use ALL techs, not just those available on that day
                     for (const tech of technicians) {
-                        // Parse scope and get required tech count
                         const scopeItems = parseScope(location.scope);
                         let requiredTechs = 0;
                         let requiredSpecializations = [];
@@ -1067,12 +1143,9 @@ window.addEventListener('DOMContentLoaded', function() {
                             }
                         });
 
-                        // Assign as many techs as possible, up to requiredTechs
                         let assignableTechs = Math.min(tech.count - (techUsage[day][tech.id] || 0), requiredTechs);
                         if (assignableTechs <= 0) continue;
 
-                        // Specialization check (override: allow any tech)
-                        // Time window: use max possible overlap
                         const dayDate = new Date(weekStart);
                         dayDate.setDate(weekStart.getDate() + days.indexOf(day));
 
@@ -1092,10 +1165,8 @@ window.addEventListener('DOMContentLoaded', function() {
                         const jobDuration = calculateJobDuration(location.scope);
                         const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
-                        // Drive info
                         const driveInfo = await getDriveInfoCached(tech, location);
 
-                        // Build overrideParams for transparency
                         let paramsBroken = [];
                         if (!availableDays.includes(day)) paramsBroken.push("Location Availability");
                         if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
@@ -1107,7 +1178,6 @@ window.addEventListener('DOMContentLoaded', function() {
                         if (jobEndTime > endTime) paramsBroken.push("Time Window");
                         if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) paramsBroken.push("Install Window");
 
-                        // Schedule anyway, even if paramsBroken is not empty
                         if (!schedule[day]) schedule[day] = { date: null, teams: [] };
                         if (!schedule[day].date) {
                             const dayDate = new Date(weekStart);
@@ -1145,7 +1215,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         });
                         techUsage[day][tech.id] = (techUsage[day][tech.id] || 0) + assignableTechs;
                         scheduled = true;
-                        break; // Stop after scheduling with one tech for this location
+                        break;
                     }
                     if (scheduled) break;
                 }
@@ -1155,13 +1225,11 @@ window.addEventListener('DOMContentLoaded', function() {
             displayMetrics(schedule, []);
         }
 
-        // --- Update displaySchedule to show all jobs and override reasons ---
         function displaySchedule(schedule, unassigned, overrideMode = false) {
             const output = document.getElementById('scheduleOutput');
             let html = '<h3>📅 Optimized Installation Schedule</h3>';
             Object.entries(schedule).forEach(([day, dayObj]) => {
                 let { date, teams } = dayObj;
-                // --- Fix: Ensure date is a Date object before using toLocaleDateString ---
                 if (date && typeof date === "string") {
                     let parsed = new Date(date);
                     if (!isNaN(parsed.getTime())) {
@@ -1180,7 +1248,6 @@ window.addEventListener('DOMContentLoaded', function() {
                             let startDT = assignment.startDateTime;
                             let endDT = assignment.endDateTime;
 
-                            // Ensure dates are Date objects for formatting
                             if (typeof startDT === 'string') {
                                 startDT = new Date(startDT);
                             }
@@ -1230,12 +1297,11 @@ window.addEventListener('DOMContentLoaded', function() {
             output.innerHTML = html;
         }
 
-        // --- Metrics Display (add this function to fix the error) ---
+        // --- Metrics Display ---
         function displayMetrics(schedule, unassigned) {
             const metricsDiv = document.getElementById('metrics');
             if (!metricsDiv) return;
 
-            // Calculate metrics
             let totalJobs = 0;
             let totalDriveMinutes = 0;
             let totalDriveMiles = 0;
@@ -1252,7 +1318,6 @@ window.addEventListener('DOMContentLoaded', function() {
                                 totalDriveMiles += Number(a.driveMiles) || 0;
                                 totalDuration += Number(a.duration) || 0;
                             });
-                            // Count unique teams per day
                             totalTeams += 1;
                         });
                     }
@@ -1288,12 +1353,92 @@ window.addEventListener('DOMContentLoaded', function() {
                 ` : ''}
             `;
 
-            // Control button visibility
             const overrideBtn = document.getElementById('overrideBtn');
             if (overrideBtn) {
                 overrideBtn.style.display = unassigned.length > 0 ? 'inline-block' : 'none';
             }
         }
+
+        // --- Export to XLSX Functionality ---
+        function exportToXLSX() {
+            if (Object.keys(lastSchedule).length === 0) {
+                alert("Please generate a schedule before exporting.");
+                return;
+            }
+
+            const data = [];
+            let sheetName = "Schedule";
+            let filename = "schedule.xlsx";
+
+            const header = [
+                "Date",
+                "Day",
+                "Team Name",
+                "Team Size",
+                "Start Time",
+                "End Time",
+                "Site ID",
+                "Address",
+                "Scope of Work",
+                "Duration (min)",
+                "Drive Time (min)",
+                "Drive Distance (mi)",
+                "Override Reasons"
+            ];
+            data.push(header);
+
+            Object.entries(lastSchedule).forEach(([day, dayObj]) => {
+                dayObj.teams.forEach(teamSchedule => {
+                    teamSchedule.assignments.forEach(assignment => {
+                        const row = [
+                            new Date(dayObj.date).toLocaleDateString(),
+                            day,
+                            teamSchedule.team.teamName,
+                            teamSchedule.team.count,
+                            new Date(assignment.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                            new Date(assignment.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                            assignment.location.siteId,
+                            assignment.location.address,
+                            assignment.location.scope,
+                            assignment.duration,
+                            assignment.driveTime,
+                            assignment.driveMiles,
+                            assignment.overrideParams.join(', ')
+                        ];
+                        data.push(row);
+                    });
+                });
+            });
+
+            if (lastUnassignedLocations.length > 0) {
+                 const unassignedHeader = ["Unassigned Locations", "", "", "", "", "", "", "", "", "", "", "", ""];
+                 data.push([]);
+                 data.push(unassignedHeader);
+                 lastUnassignedLocations.forEach(loc => {
+                     data.push([
+                         "",
+                         "",
+                         "",
+                         "",
+                         "",
+                         "",
+                         loc.siteId,
+                         loc.address,
+                         loc.scope,
+                         "",
+                         "",
+                         "",
+                         ""
+                     ]);
+                 });
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, filename);
+        }
+
     </script>
 </body>
 </html>
