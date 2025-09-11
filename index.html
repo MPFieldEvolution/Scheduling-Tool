@@ -62,32 +62,9 @@
             background-color: #f8f8f8;
         }
     </style>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        window.firebase = {
-            initializeApp,
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            getFirestore,
-            doc,
-            getDoc,
-            setDoc,
-            collection,
-            query,
-            where,
-            getDocs,
-            onSnapshot,
-            updateDoc,
-            deleteDoc
-        };
-    </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
     <!-- SheetJS for XLSX export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -449,7 +426,9 @@
         }
         
         function getSelectedProviders(containerId) {
-            return Array.from(document.querySelectorAll(`#${containerId} input[type="checkbox"]:checked`)).map(cb => cb.value);
+            const container = document.getElementById(containerId);
+            if (!container) return [];
+            return Array.from(container.querySelectorAll(`input[type="checkbox"]:checked`)).map(cb => cb.value);
         }
         
         function setSelectedProviders(containerId, selectedProviders) {
@@ -589,7 +568,7 @@
                         <p><strong>Team Size:</strong> ${tech.count} technicians</p>
                         <p><strong>Available:</strong> ${tech.days.join(', ')}</p>
                         <p><strong>Hours:</strong> ${tech.startTime} - ${tech.endTime}</p>
-                        <p><strong>Certifications:</strong> ${tech.providers.join(', ') || 'None'}</p>
+                        <p><strong>Certifications:</strong> ${(tech.providers || []).join(', ') || 'None'}</p>
                     </div>
                 </div>
             `).join('');
@@ -687,7 +666,7 @@
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
                         <p><strong>Availability:</strong> ${loc.availability}</p>
-                        <p><strong>Providers:</strong> ${loc.providers.join(', ') || 'None'}</p>
+                        <p><strong>Providers:</strong> ${(loc.providers || []).join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
                     </div>
@@ -1494,7 +1473,7 @@
                         assignment.location.siteId,
                         assignment.location.address,
                         assignment.location.scope,
-                        assignment.location.providers.join(', '),
+                        (assignment.location.providers || []).join(', '),
                         assignment.duration,
                         teamData.driveInfo.minutes,
                         teamData.driveInfo.miles,
@@ -1520,7 +1499,7 @@
                          loc.siteId,
                          loc.address,
                          loc.scope,
-                         loc.providers.join(', '),
+                         (loc.providers || []).join(', '),
                          "",
                          "",
                          ""
