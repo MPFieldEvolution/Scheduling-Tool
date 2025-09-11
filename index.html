@@ -85,7 +85,7 @@
             deleteDoc
         };
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
     <!-- SheetJS for XLSX export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -336,27 +336,28 @@
         }
 
         async function setupFirebase() {
-            if (window.firebase) {
-                const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore } = window.firebase;
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+            if (!window.firebase || Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is missing or invalid. Cannot initialize Firebase.");
+                return;
+            }
 
-                if (typeof __initial_auth_token !== 'undefined') {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } catch (error) {
-                        console.error("Error signing in with custom token:", error);
-                        await signInAnonymously(auth);
-                    }
-                } else {
+            const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore } = window.firebase;
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            if (typeof __initial_auth_token !== 'undefined') {
+                try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } catch (error) {
+                    console.error("Error signing in with custom token:", error);
                     await signInAnonymously(auth);
                 }
-                userId = auth.currentUser?.uid || crypto.randomUUID();
-                listenForProjects();
             } else {
-                console.error("Firebase SDK not loaded.");
+                await signInAnonymously(auth);
             }
+            userId = auth.currentUser?.uid || crypto.randomUUID();
+            listenForProjects();
         }
 
         async function saveProject() {
@@ -949,6 +950,16 @@
             }
             return { startHour, startMin, endHour, endMin };
         }
+        
+        // --- Helper function to format duration in hours and minutes ---
+        function formatDuration(minutes) {
+            if (minutes < 60) {
+                return `${minutes} minutes`;
+            }
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${hours} hour${hours > 1 ? 's' : ''}${mins > 0 ? `, ${mins} minute${mins > 1 ? 's' : ''}` : ''}`;
+        }
 
         // --- Advanced Scheduling Logic ---
         async function generateSchedule() {
@@ -983,10 +994,10 @@
             weekStart.setHours(0,0,0,0);
 
             const driveInfoCache = {};
-            async function getDriveInfoCached(tech, location) {
-                const key = `${tech.address}|${location.address}`;
+            async function getDriveInfoCached(origin, destination) {
+                const key = `${origin}|${destination}`;
                 if (driveInfoCache[key] !== undefined) return driveInfoCache[key];
-                const info = await getDriveInfo(tech.address, location.address);
+                const info = await getDriveInfo(origin, destination);
                 driveInfoCache[key] = info;
                 return info;
             }
@@ -999,10 +1010,13 @@
                 });
             }
 
-            for (const location of sortedLocations) {
+            let locationsToSchedule = [...sortedLocations];
+            
+            while (locationsToSchedule.length > 0) {
+                const location = locationsToSchedule.shift();
+                let jobDurationMinutes = calculateJobDuration(location.scope);
                 let scheduled = false;
                 const availableDays = getLocationAvailableDays(location);
-                const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
 
                 for (const day of availableDays) {
                     const availableTechs = technicians.filter(tech => tech.days.includes(day));
@@ -1036,9 +1050,9 @@
                     let bestAssignment = null;
 
                     for (const tech of candidateTechs) {
-                        const driveInfo = await getDriveInfoCached(tech, location);
-                        const jobDuration = calculateJobDuration(location.scope);
-
+                        const driveInfo = await getDriveInfoCached(tech.address, location.address);
+                        const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
+                        
                         const dayDate = new Date(weekStart);
                         dayDate.setDate(weekStart.getDate() + days.indexOf(day));
                         if (windowStart && dayDate < windowStart) continue;
@@ -1046,30 +1060,23 @@
 
                         const techStart = tech.startTime.split(':');
                         const techEnd = tech.endTime.split(':');
-                        let startHour = Math.max(parseInt(techStart[0]), locStartHour);
-                        let startMin = Math.max(parseInt(techStart[1]), locStartMin);
-                        let endHour = Math.min(parseInt(techEnd[0]), locEndHour);
-                        let endMin = Math.min(parseInt(techEnd[1]), locEndMin);
+                        const dayStartTime = new Date(dayDate);
+                        dayStartTime.setHours(Math.max(parseInt(techStart[0]), locStartHour), Math.max(parseInt(techStart[1]), locStartMin), 0, 0);
+                        const dayEndTime = new Date(dayDate);
+                        dayEndTime.setHours(Math.min(parseInt(techEnd[0]), locEndHour), Math.min(parseInt(techEnd[1]), locEndMin), 0, 0);
 
-                        const startTime = new Date(dayDate);
-                        startTime.setHours(startHour, startMin, 0, 0);
-                        const endTime = new Date(dayDate);
-                        endTime.setHours(endHour, endMin, 0, 0);
-
-                        const jobStartTime = new Date(startTime);
-                        const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
-
-                        if (jobEndTime > endTime) continue;
-                        if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) continue;
+                        const availableWorkMinutes = (dayEndTime.getTime() - dayStartTime.getTime()) / 60000;
+                        
+                        if (availableWorkMinutes <= 0) continue;
 
                         if (!bestDrive || driveInfo.minutes < bestDrive.minutes) {
                             bestTech = tech;
                             bestDrive = driveInfo;
                             bestAssignment = {
                                 location: location,
-                                startDateTime: new Date(jobStartTime),
-                                endDateTime: new Date(jobEndTime),
-                                duration: jobDuration,
+                                startDateTime: dayStartTime,
+                                endDateTime: new Date(dayEndTime),
+                                duration: availableWorkMinutes,
                                 driveTime: driveInfo.minutes,
                                 driveMiles: driveInfo.miles,
                                 team: tech,
@@ -1081,6 +1088,12 @@
                     }
 
                     if (bestTech && bestAssignment) {
+                        const maxWorkDuration = (bestAssignment.endDateTime.getTime() - bestAssignment.startDateTime.getTime()) / 60000;
+                        const workToday = Math.min(jobDurationMinutes, maxWorkDuration);
+
+                        bestAssignment.endDateTime = new Date(bestAssignment.startDateTime.getTime() + workToday * 60000);
+                        bestAssignment.duration = workToday;
+                        
                         if (!schedule[day]) schedule[day] = { date: null, teams: [] };
                         if (!schedule[day].date) {
                             const dayDate = new Date(weekStart);
@@ -1095,8 +1108,17 @@
                         teamEntry.assignments.push(bestAssignment);
                         assignments.push(bestAssignment);
                         techUsage[day][bestTech.id] += requiredTechs;
-                        scheduled = true;
-                        break;
+                        jobDurationMinutes -= workToday;
+                        
+                        if (jobDurationMinutes <= 0) {
+                            scheduled = true;
+                            break; 
+                        } else {
+                            // If job is not finished, put it back on the queue to be scheduled on the next day
+                            location.scope = `${jobDurationMinutes} min remaining`; // A placeholder to show remaining work
+                            locationsToSchedule.unshift(location); // Re-add to the front to be scheduled next
+                            break;
+                        }
                     }
                 }
                 if (!scheduled) {
@@ -1130,10 +1152,10 @@
 
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const driveInfoCache = {};
-            async function getDriveInfoCached(tech, location) {
-                const key = `${tech.address}|${location.address}`;
+            async function getDriveInfoCached(origin, destination) {
+                const key = `${origin}|${destination}`;
                 if (driveInfoCache[key] !== undefined) return driveInfoCache[key];
-                const info = await getDriveInfo(tech.address, location.address);
+                const info = await getDriveInfo(origin, destination);
                 driveInfoCache[key] = info;
                 return info;
             }
@@ -1149,12 +1171,19 @@
             let allAssignments = [...lastAssignments];
             let schedule = JSON.parse(JSON.stringify(lastSchedule));
 
-            for (const location of lastUnassignedLocations) {
+            let unassignedCopy = [...lastUnassignedLocations];
+            lastUnassignedLocations = [];
+
+            while(unassignedCopy.length > 0){
+                const location = unassignedCopy.shift();
+                let jobDurationMinutes = calculateJobDuration(location.scope);
                 let scheduled = false;
                 const availableDays = getLocationAvailableDays(location);
-                const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
 
                 for (const day of days) {
+                    // This is the key difference: we only schedule on days the location is available
+                    if (!availableDays.includes(day)) continue;
+
                     for (const tech of technicians) {
                         const scopeItems = parseScope(location.scope);
                         let requiredTechs = 0;
@@ -1178,31 +1207,30 @@
 
                         const techStart = tech.startTime.split(':');
                         const techEnd = tech.endTime.split(':');
-                        let startHour = Math.max(parseInt(techStart[0]), locStartHour);
-                        let startMin = Math.max(parseInt(techStart[1]), locStartMin);
-                        let endHour = Math.min(parseInt(techEnd[0]), locEndHour);
-                        let endMin = Math.min(parseInt(techEnd[1]), locEndMin);
+                        const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
+                        
+                        const dayStartTime = new Date(dayDate);
+                        dayStartTime.setHours(Math.max(parseInt(techStart[0]), locStartHour), Math.max(parseInt(techStart[1]), locStartMin), 0, 0);
+                        const dayEndTime = new Date(dayDate);
+                        dayEndTime.setHours(Math.min(parseInt(techEnd[0]), locEndHour), Math.min(parseInt(techEnd[1]), locEndMin), 0, 0);
+                        
+                        const availableWorkMinutes = (dayEndTime.getTime() - dayStartTime.getTime()) / 60000;
+                        
+                        if (availableWorkMinutes <= 0) continue;
 
-                        const startTime = new Date(dayDate);
-                        startTime.setHours(startHour, startMin, 0, 0);
-                        const endTime = new Date(dayDate);
-                        endTime.setHours(endHour, endMin, 0, 0);
+                        const jobStartTime = new Date(dayStartTime);
+                        const workToday = Math.min(jobDurationMinutes, availableWorkMinutes);
+                        const jobEndTime = new Date(jobStartTime.getTime() + workToday * 60000);
 
-                        const jobStartTime = new Date(startTime);
-                        const jobDuration = calculateJobDuration(location.scope);
-                        const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
-
-                        const driveInfo = await getDriveInfoCached(tech, location);
+                        const driveInfo = await getDriveInfoCached(tech.address, location.address);
 
                         let paramsBroken = [];
-                        if (!availableDays.includes(day)) paramsBroken.push("Location Availability");
                         if (tech.specializations.length > 0 && requiredSpecializations.length > 0) {
                             if (!requiredSpecializations.every(req =>
                                 tech.specializations.some(sp => sp.toLowerCase() === req.toLowerCase())
                             )) paramsBroken.push("Specialization");
                         }
                         if ((tech.count - (techUsage[day][tech.id] || 0)) < requiredTechs) paramsBroken.push("Tech Count");
-                        if (jobEndTime > endTime) paramsBroken.push("Time Window");
                         if ((windowStart && jobStartTime < windowStart) || (windowEnd && jobEndTime > windowEnd)) paramsBroken.push("Install Window");
 
                         if (!schedule[day]) schedule[day] = { date: null, teams: [] };
@@ -1216,11 +1244,12 @@
                             teamEntry = { team: tech, assignments: [] };
                             schedule[day].teams.push(teamEntry);
                         }
+                        
                         teamEntry.assignments.push({
                             location: location,
                             startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
-                            duration: jobDuration,
+                            duration: workToday,
                             driveTime: driveInfo.minutes,
                             driveMiles: driveInfo.miles,
                             team: tech,
@@ -1232,7 +1261,7 @@
                             location: location,
                             startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
-                            duration: jobDuration,
+                            duration: workToday,
                             driveTime: driveInfo.minutes,
                             driveMiles: driveInfo.miles,
                             team: tech,
@@ -1241,15 +1270,26 @@
                             assignedTechs: assignableTechs
                         });
                         techUsage[day][tech.id] = (techUsage[day][tech.id] || 0) + assignableTechs;
-                        scheduled = true;
-                        break;
+                        jobDurationMinutes -= workToday;
+                        
+                        if (jobDurationMinutes <= 0) {
+                            scheduled = true;
+                            break; 
+                        } else {
+                            location.scope = `${jobDurationMinutes} min remaining`;
+                            unassignedCopy.unshift(location);
+                            break;
+                        }
                     }
                     if (scheduled) break;
                 }
+                if (!scheduled) {
+                    lastUnassignedLocations.push(location);
+                }
             }
 
-            displaySchedule(schedule, [], true);
-            displayMetrics(schedule, []);
+            displaySchedule(schedule, lastUnassignedLocations, true);
+            displayMetrics(schedule, lastUnassignedLocations);
         }
 
         function displaySchedule(schedule, unassigned, overrideMode = false) {
@@ -1288,11 +1328,10 @@
                             html += `<div style="margin-left: 20px; margin-top: 10px;">`;
                             html += `<span class="tech-tag">${startTime}</span> - <span class="tech-tag">${endTime}</span>`;
                             html += `<span class="location-tag">${assignment.location.siteId}</span>`;
-                            // Show assigned techs for this specific location
                             html += `<p><strong>Techs Assigned:</strong> ${assignment.assignedTechs}</p>`;
                             html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
                             html += `<p>📋 ${assignment.location.scope}</p>`;
-                            html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
+                            html += `<p>⏱️ Est. Duration: ${formatDuration(assignment.duration)}</p>`;
                             html += `<p>🚗 Est. Drive: ${assignment.driveMiles} mi, ${assignment.driveTime} min</p>`;
                             if (assignment.overrideParams && assignment.overrideParams.length > 0) {
                                 html += `<p style="color:#c33;"><strong>Override: </strong>Scheduled by breaking: ${assignment.overrideParams.join(', ')}</p>`;
@@ -1470,45 +1509,7 @@
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
             XLSX.writeFile(wb, filename);
         }
-// Place this at the end of your <script> section, after all other code
 
-// --- Google Places Autocomplete for Technician Address and Full Address ---
-function setupAddressAutocomplete() {
-    // Wait until Google Maps API and DOM elements are ready
-    if (
-        window.google &&
-        window.google.maps &&
-        window.google.maps.places &&
-        document.getElementById('techAddress') &&
-        document.getElementById('locationAddress')
-    ) {
-        // Technician Address Autocomplete
-        const techInput = document.getElementById('techAddress');
-        const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
-        techAutocomplete.setFields(['formatted_address', 'geometry']);
-        techAutocomplete.addListener('place_changed', function() {
-            const place = techAutocomplete.getPlace();
-            if (place && place.formatted_address) {
-                techInput.value = place.formatted_address;
-            }
-        });
-
-        // Location Address Autocomplete
-        const locInput = document.getElementById('locationAddress');
-        const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
-        locAutocomplete.setFields(['formatted_address', 'geometry']);
-        locAutocomplete.addListener('place_changed', function() {
-            const place = locAutocomplete.getPlace();
-            if (place && place.formatted_address) {
-                locInput.value = place.formatted_address;
-            }
-        });
-    } else {
-        // Try again after a short delay if not ready
-        setTimeout(setupAddressAutocomplete, 300);
-    }
-}
-window.addEventListener('DOMContentLoaded', setupAddressAutocomplete);
     </script>
 </body>
 </html>
