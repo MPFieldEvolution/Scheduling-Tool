@@ -64,7 +64,8 @@
     </style>
     <!-- SheetJS for XLSX export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places" async defer></script>
+    <!-- Use a callback function to ensure Google Maps API is loaded before usage -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places&callback=initMap" defer></script>
 </head>
 <body>
     <div class="container">
@@ -416,9 +417,6 @@
                         displaySchedule(lastSchedule, lastUnassignedLocations);
                         displayMetrics(lastSchedule, lastUnassignedLocations);
                     }
-                    if (tabName === 'locations') {
-                        updateProjectProviders();
-                    }
                 });
             });
             loadAllData();
@@ -426,13 +424,11 @@
             setCurrentTab(savedTab);
         });
 
-        window.addEventListener('DOMContentLoaded', function() {
-            // Populate providers
-            populateProviderCheckboxes();
-            
+        // The initMap function is now a global callback function for the Google Maps script
+        function initMap() {
             // Technician Address Autocomplete
-            if (window.google && window.google.maps && window.google.maps.places) {
-                const techInput = document.getElementById('techAddress');
+            const techInput = document.getElementById('techAddress');
+            if(techInput) {
                 const techAutocomplete = new google.maps.places.Autocomplete(techInput, { types: ['address'] });
                 techAutocomplete.setFields(['formatted_address']);
                 techAutocomplete.addListener('place_changed', function() {
@@ -441,9 +437,11 @@
                         techInput.value = place.formatted_address;
                     }
                 });
+            }
 
-                // Location Address Autocomplete
-                const locInput = document.getElementById('locationAddress');
+            // Location Address Autocomplete
+            const locInput = document.getElementById('locationAddress');
+            if (locInput) {
                 const locAutocomplete = new google.maps.places.Autocomplete(locInput, { types: ['address'] });
                 locAutocomplete.setFields(['formatted_address']);
                 locAutocomplete.addListener('place_changed', function() {
@@ -453,7 +451,7 @@
                     }
                 });
             }
-        });
+        }
 
         function populateProviderCheckboxes() {
             const techContainer = document.getElementById('techProviderCheckboxes');
@@ -1217,7 +1215,7 @@
                 techUsage[tech.id] = {};
             });
 
-            let unassignedCopy = [...lastUnassignedLocations];
+            let unassignedCopy = lastUnassignedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope) }));
             lastUnassignedLocations = [];
             
             let currentDate = new Date();
@@ -1235,7 +1233,7 @@
                 for (let i = 0; i < locationsToProcessThisDay.length; i++) {
                     const location = locationsToProcessThisDay[i];
                     
-                    let jobDurationMinutes = calculateJobDuration(location.scope);
+                    let jobDurationMinutes = location.remainingDuration;
                     let scheduledThisLocation = false;
                     
                     const isLocationAvailable = getLocationAvailableDays(location).includes(dayOfWeek);
