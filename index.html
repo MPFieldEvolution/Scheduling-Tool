@@ -25,7 +25,7 @@
         .btn { padding: 12px 24px; background: linear-gradient(135deg, #ff0000, #b30000); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s; box-shadow: 0 4px 15px rgba(255,0,0,0.3);}
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,0,0,0.4);}
         .btn-secondary { background: #6c757d; box-shadow: 0 4px 15px rgba(108,117,125,0.3);}
-        .btn-danger { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.3);}
+        .btn-danger { background: #dc3545; box-shadow: 0 4-px 15px rgba(220,53,69,0.3);}
         .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s;}
         .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.15);}
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;}
@@ -183,8 +183,23 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Site Availability</label>
-                        <input type="text" id="locationAvailability" placeholder="e.g., Mon-Fri 9AM-5PM">
+                        <label>Site Availability (Days)</label>
+                        <div id="locationDayCheckboxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <label><input type="checkbox" value="Monday" checked> Monday</label>
+                            <label><input type="checkbox" value="Tuesday" checked> Tuesday</label>
+                            <label><input type="checkbox" value="Wednesday" checked> Wednesday</label>
+                            <label><input type="checkbox" value="Thursday" checked> Thursday</label>
+                            <label><input type="checkbox" value="Friday" checked> Friday</label>
+                            <label><input type="checkbox" value="Saturday"> Saturday</label>
+                            <label><input type="checkbox" value="Sunday"> Sunday</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Site Hours</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="time" id="locationStartTime" value="09:00">
+                            <input type="time" id="locationEndTime" value="17:00">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Contact Person</label>
@@ -565,11 +580,13 @@
 
         // --- Technician CRUD ---
         function getSelectedTechDays() {
-            return Array.from(document.querySelectorAll('#techDaysCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
+            const container = document.getElementById('techDaysCheckboxes');
+            if (!container) return [];
+            return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
         }
         function setSelectedTechDays(days) {
             document.querySelectorAll('#techDaysCheckboxes input[type="checkbox"]').forEach(cb => {
-                cb.checked = days.includes(cb.value);
+                cb.checked = (days || []).includes(cb.value);
             });
         }
         function addTechnician() {
@@ -675,13 +692,27 @@
         }
 
         // --- Location CRUD ---
+        function getSelectedLocationDays() {
+            const container = document.getElementById('locationDayCheckboxes');
+            if (!container) return [];
+            return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        }
+
+        function setSelectedLocationDays(days) {
+            document.querySelectorAll('#locationDayCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = (days || []).includes(cb.value);
+            });
+        }
+
         function addLocation() {
             const siteId = document.getElementById('locationId')?.value.trim();
             const name = document.getElementById('locationName')?.value.trim();
             const address = document.getElementById('locationAddress')?.value.trim();
             const scope = document.getElementById('locationScope')?.value.trim();
             const priority = document.getElementById('locationPriority')?.value;
-            const availability = document.getElementById('locationAvailability')?.value.trim();
+            const days = getSelectedLocationDays();
+            const startTime = document.getElementById('locationStartTime')?.value;
+            const endTime = document.getElementById('locationEndTime')?.value;
             const contact = document.getElementById('locationContact')?.value.trim();
             const notes = document.getElementById('locationNotes')?.value.trim();
 
@@ -691,6 +722,8 @@
             if (!scope) errors.push("Scope of Work is required.");
             if (locations.some(l => l.siteId === siteId && l.id !== editLocationId)) errors.push("Site ID must be unique.");
             if (projectProviders.length === 0) errors.push("At least one provider must be selected for the project.");
+            if (days.length === 0) errors.push("At least one availability day must be selected.");
+            if (!startTime || !endTime) errors.push("Site hours are required.");
 
             const scopeItems = parseScope(scope);
             const missingScopes = scopeItems.filter(item =>
@@ -712,12 +745,12 @@
             if (editLocationId !== null) {
                 const idx = locations.findIndex(l => l.id === editLocationId);
                 if (idx !== -1) {
-                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, availability, contact, notes, providers: projectProviders };
+                    locations[idx] = { id: editLocationId, siteId, name, address, scope, priority, days, startTime, endTime, contact, notes, providers: projectProviders };
                 }
                 editLocationId = null;
                 document.querySelector('button[onclick="addLocation()"]').textContent = "Add Location";
             } else {
-                const location = { id: Date.now(), siteId, name, address, scope, priority, availability, contact, notes, providers: projectProviders };
+                const location = { id: Date.now(), siteId, name, address, scope, priority, days, startTime, endTime, contact, notes, providers: projectProviders };
                 locations.push(location);
             }
             updateLocationList();
@@ -743,7 +776,7 @@
                         <p><strong>Address:</strong> ${loc.address}</p>
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
-                        <p><strong>Availability:</strong> ${loc.availability}</p>
+                        <p><strong>Availability:</strong> ${loc.days.join(', ')} (${loc.startTime} - ${loc.endTime})</p>
                         <p><strong>Providers:</strong> ${(projectProviders || []).join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
@@ -759,7 +792,9 @@
             if (document.getElementById('locationAddress')) document.getElementById('locationAddress').value = loc.address;
             if (document.getElementById('locationScope')) document.getElementById('locationScope').value = loc.scope;
             if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = loc.priority;
-            if (document.getElementById('locationAvailability')) document.getElementById('locationAvailability').value = loc.availability;
+            setSelectedLocationDays(loc.days);
+            if (document.getElementById('locationStartTime')) document.getElementById('locationStartTime').value = loc.startTime;
+            if (document.getElementById('locationEndTime')) document.getElementById('locationEndTime').value = loc.endTime;
             if (document.getElementById('locationContact')) document.getElementById('locationContact').value = loc.contact;
             if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = loc.notes;
             editLocationId = id;
@@ -777,7 +812,9 @@
             if (document.getElementById('locationName')) document.getElementById('locationName').value = '';
             if (document.getElementById('locationAddress')) document.getElementById('locationAddress').value = '';
             if (document.getElementById('locationScope')) document.getElementById('locationScope').value = '';
-            if (document.getElementById('locationAvailability')) document.getElementById('locationAvailability').value = '';
+            setSelectedLocationDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+            if (document.getElementById('locationStartTime')) document.getElementById('locationStartTime').value = '09:00';
+            if (document.getElementById('locationEndTime')) document.getElementById('locationEndTime').value = '17:00';
             if (document.getElementById('locationContact')) document.getElementById('locationContact').value = '';
             if (document.getElementById('locationNotes')) document.getElementById('locationNotes').value = '';
             if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = 'Medium';
@@ -902,22 +939,21 @@
 
         // --- Helper: Get available days for a location ---
         function getLocationAvailableDays(location) {
-            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-            if (!location.availability || location.availability.trim() === "") return days;
-            return days.filter(day => location.availability.toLowerCase().includes(day.toLowerCase()));
+            return location.days || [];
         }
 
         // --- Helper: Get location available time window ---
         function getLocationAvailableTime(location) {
-            let startHour = 8, startMin = 0, endHour = 17, endMin = 0;
-            const timeMatch = location.availability && location.availability.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-            if (timeMatch) {
-                startHour = parseInt(timeMatch[1]);
-                startMin = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-                if (timeMatch[3] && timeMatch[3].toLowerCase() === 'pm' && startHour < 12) startHour += 12;
-                endHour = parseInt(timeMatch[4]);
-                endMin = timeMatch[5] ? parseInt(timeMatch[5]) : 0;
-                if (timeMatch[6] && timeMatch[6].toLowerCase() === 'pm' && endHour < 12) endHour += 12;
+            let startHour = 9, startMin = 0, endHour = 17, endMin = 0;
+            if (location.startTime) {
+                const [h, m] = location.startTime.split(':');
+                startHour = parseInt(h);
+                startMin = parseInt(m);
+            }
+            if (location.endTime) {
+                const [h, m] = location.endTime.split(':');
+                endHour = parseInt(h);
+                endMin = parseInt(m);
             }
             return { startHour, startMin, endHour, endMin };
         }
@@ -985,14 +1021,14 @@
             while (locationQueue.length > 0 && loopGuard < 1000) {
                 loopGuard++;
                 const dayOfWeek = days[currentDate.getDay()];
-                const locationsToProcessThisDay = [...locationQueue];
                 let didScheduleThisDay = false;
 
-                for (let i = 0; i < locationsToProcessThisDay.length; i++) {
-                    const location = locationsToProcessThisDay[i];
-                    
-                    const jobDurationMinutes = calculateJobDuration(location.scope);
-                    
+                const originalQueueLength = locationQueue.length;
+                let locationsToProcess = [...locationQueue];
+                locationQueue = []; // Reset queue for next pass
+
+                for (const location of locationsToProcess) {
+                    let jobDurationMinutes = calculateJobDuration(location.scope);
                     const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
                     const isLocationAvailable = getLocationAvailableDays(location).includes(dayOfWeek);
                     
@@ -1008,12 +1044,10 @@
                         if (eligibleTeams.length > 0) {
                             const scopeItems = parseScope(location.scope);
                             let requiredTechs = 0;
-                            let requiredSpecializations = [];
                             scopeItems.forEach(item => {
                                 const scopeTemplate = scopes.find(s => s.type.toLowerCase().includes(item.type.toLowerCase()));
                                 if (scopeTemplate) {
                                     requiredTechs = Math.max(requiredTechs, scopeTemplate.techCount);
-                                    requiredSpecializations.push(scopeTemplate.type);
                                 }
                             });
 
@@ -1092,33 +1126,24 @@
                                 } else {
                                     location.originalScope = location.originalScope || location.scope;
                                     location.scope = `${jobDurationMinutes - workToday} min remaining`;
+                                    locationQueue.push(location);
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
                                 }
                             }
                         }
                     }
-                    if (scheduledThisLocation) {
-                         // Remove the scheduled item from the queue and re-add if not complete
-                        const originalIndex = locationQueue.findIndex(l => l.id === location.id);
-                        if (originalIndex > -1) {
-                            locationQueue.splice(originalIndex, 1);
-                        }
-                        if (location.scope.includes('min remaining')) {
-                            locationQueue.push(location);
-                        }
-                    } else if (i === locationsToProcessThisDay.length - 1 && !didScheduleThisDay) {
-                        currentDate.setDate(currentDate.getDate() + 1);
-                        break;
+                    if (!scheduledThisLocation) {
+                        locationQueue.push(location);
                     }
                 }
-                if (!didScheduleThisDay && locationQueue.length > 0) {
+                
+                if (!didScheduleThisDay && locationQueue.length === originalQueueLength) {
+                    unassignedLocations = [...locationQueue];
+                    locationQueue = [];
+                } else if (didScheduleThisDay) {
                     currentDate.setDate(currentDate.getDate() + 1);
                 }
-            }
-
-            if (locationQueue.length > 0) {
-                unassignedLocations = locationQueue;
             }
 
             // Restore original scope before saving
@@ -1240,6 +1265,7 @@
                         }
 
                         if (assignedTechCount >= requiredTechs && primaryTeamDriveInfo) {
+                            const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
                             const teamStart = eligibleTeams[0].startTime.split(':');
                             const teamEnd = eligibleTeams[0].endTime.split(':');
                             const dayStartTime = new Date(currentDate);
