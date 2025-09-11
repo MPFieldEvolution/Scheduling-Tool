@@ -47,32 +47,62 @@
         .error { background: #fee; color: #c33; padding: 10px; border-radius: 6px; margin-top: 10px;}
         .success { background: #efe; color: #3c3; padding: 10px; border-radius: 6px; margin-top: 10px;}
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"></script>
+    <!-- Google Maps JS API: Use async & defer for best performance -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzV7sB-aIL3-OL2Z5EMW9TXvVEYjox7mw&libraries=places"
+      async defer></script>
     <script>
     // Google Places Autocomplete for address fields
     window.addEventListener('DOMContentLoaded', function() {
-        function waitForGoogleMaps(callback) {
-            if (window.google && window.google.maps && window.google.maps.places && window.google.maps.places.Autocomplete) {
-                callback();
-            } else {
-                setTimeout(function() { waitForGoogleMaps(callback); }, 100);
+        // Use PlaceAutocompleteElement if available (for new customers)
+        function useModernAutocomplete(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            // Remove any previous autocomplete element
+            if (input._autocompleteElement) {
+                input._autocompleteElement.remove();
+                input._autocompleteElement = null;
+            }
+            // Only use if PlaceAutocompleteElement is available
+            if (window.google && google.maps && google.maps.places && google.maps.places.PlaceAutocompleteElement) {
+                const el = document.createElement('gmpx-place-autocomplete');
+                el.setAttribute('input-element', input);
+                input.parentNode.insertBefore(el, input.nextSibling);
+                input._autocompleteElement = el;
             }
         }
-        function attachAutocomplete(inputId) {
+        function useLegacyAutocomplete(inputId) {
             const input = document.getElementById(inputId);
             if (!input) return;
             if (input._autocomplete && input._autocomplete.unbindAll) {
                 input._autocomplete.unbindAll();
             }
             input._autocomplete = null;
-            const autocomplete = new google.maps.places.Autocomplete(input, { types: ['geocode'] });
-            input._autocomplete = autocomplete;
-            autocomplete.addListener('place_changed', function() {
-                const place = autocomplete.getPlace();
-                if (place && place.formatted_address) {
-                    input.value = place.formatted_address;
-                }
-            });
+            if (window.google && window.google.maps && window.google.maps.places && window.google.maps.places.Autocomplete) {
+                const autocomplete = new google.maps.places.Autocomplete(input, { types: ['geocode'] });
+                input._autocomplete = autocomplete;
+                autocomplete.addListener('place_changed', function() {
+                    const place = autocomplete.getPlace();
+                    if (place && place.formatted_address) {
+                        input.value = place.formatted_address;
+                    }
+                });
+            }
+        }
+        function attachAutocomplete(inputId) {
+            // Try modern first, fallback to legacy
+            if (window.google && google.maps && google.maps.places && google.maps.places.PlaceAutocompleteElement) {
+                useModernAutocomplete(inputId);
+            } else {
+                useLegacyAutocomplete(inputId);
+            }
+        }
+        function waitForGoogleMaps(callback) {
+            if (window.google && window.google.maps && window.google.maps.places) {
+                callback();
+            } else {
+                setTimeout(function() { waitForGoogleMaps(callback); }, 100);
+            }
         }
         waitForGoogleMaps(function() {
             attachAutocomplete('techAddress');
