@@ -899,20 +899,25 @@ window.addEventListener('DOMContentLoaded', function() {
                         continue;
                     }
 
-                    // --- Site Availability: Try to match, but if not possible, schedule anyway ---
-                    // (No longer strictly enforced, but preferred)
-                    let canSchedule = true;
+                    // --- Site Availability: Only schedule if day matches customer availability ---
+                    let canSchedule = false;
                     if (location.availability && location.availability.trim() !== "") {
                         const avail = location.availability.toLowerCase();
-                        if (!avail.includes(day.toLowerCase())) {
-                            // Try next day, but if no match, allow scheduling anyway
-                            canSchedule = false;
+                        if (avail.includes(day.toLowerCase())) {
+                            canSchedule = true;
                         }
+                    } else {
+                        // If no availability set, allow scheduling any day
+                        canSchedule = true;
+                    }
+                    if (!canSchedule) {
+                        i++;
+                        continue;
                     }
 
                     // --- Drive info and buffer ---
                     const driveInfo = await getDriveInfoCached({address: lastAddress}, location);
-                    const bufferTime = calculateAutoBuffer(); // Always 15 min
+                    const bufferTime = 15; // Always 15 min
                     const jobDuration = calculateJobDuration(location.scope);
                     const jobStartTime = new Date(currentTime.getTime() + bufferTime * 60000); // buffer before job
                     const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
@@ -930,9 +935,7 @@ window.addEventListener('DOMContentLoaded', function() {
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
                             driveTime: driveInfo.minutes,
-                            driveMiles: driveInfo.miles,
-                            bufferTime: bufferTime,
-                            canSchedule: canSchedule
+                            driveMiles: driveInfo.miles
                         });
                         currentTime = jobEndTime;
                         lastAddress = location.address;
@@ -973,9 +976,6 @@ window.addEventListener('DOMContentLoaded', function() {
                         html += `<p>📋 ${assignment.location.scope}</p>`;
                         html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
                         html += `<p>🚗 Est. Drive: ${assignment.driveMiles} mi, ${assignment.driveTime} min</p>`;
-                        if (!assignment.canSchedule) {
-                            html += `<p style="color:#c33;"><strong>Note:</strong> Scheduled outside customer availability.</p>`;
-                        }
                         html += `</div>`;
                     });
                     html += `</div>`;
