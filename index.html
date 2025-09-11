@@ -1033,38 +1033,40 @@
                 techUsage[tech.id] = {};
             });
             
-            let currentDate = new Date();
-            currentDate.setHours(0,0,0,0);
-            let locationQueue = sortedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope) }));
+            let currentDate = new Date(installWindowStart + "T00:00:00");
+            if (!installWindowStart) {
+                currentDate = new Date();
+                currentDate.setHours(0,0,0,0);
+            }
+
+            let locationsToRetry = sortedLocations.map(loc => ({ ...loc, remainingDuration: calculateJobDuration(loc.scope), originalScope: loc.scope }));
             let unassignedLocations = [];
-            
+
             const maxDays = 365;
             let loopGuard = 0;
 
-            while (locationQueue.length > 0 && loopGuard < maxDays) {
+            while (locationsToRetry.length > 0 && loopGuard < maxDays) {
                 loopGuard++;
                 const dayOfWeek = days[currentDate.getDay()];
                 let didScheduleThisDay = false;
 
-                const locationsToProcessThisDay = [...locationQueue];
-                locationQueue = [];
+                const currentDayQueue = [...locationsToRetry];
+                locationsToRetry.length = 0; // Clear the retry queue for a fresh start
 
-                for (const location of locationsToProcessThisDay) {
-                    
+                for (const location of currentDayQueue) {
                     const { startHour: locStartHour, startMin: locStartMin, endHour: locEndHour, endMin: locEndMin } = getLocationAvailableTime(location);
                     const isLocationAvailable = getLocationAvailableDays(location).includes(dayOfWeek);
-                    
+
                     let scheduledThisLocation = false;
 
-                    if (isLocationAvailable && (!windowStart || currentDate >= windowStart) && (!windowEnd || currentDate <= windowEnd)) {
-                        
+                    if (isLocationAvailable && (!windowEnd || currentDate <= windowEnd)) {
                         const eligibleTeams = technicians.filter(tech => {
                             const hasProviderMatch = (projectProviders || []).every(provider => (tech.providers || []).includes(provider));
                             return (tech.days || []).includes(dayOfWeek) && (tech.count - (techUsage[tech.id][currentDate.toISOString().split('T')[0]] || 0)) > 0 && hasProviderMatch;
                         });
 
                         if (eligibleTeams.length > 0) {
-                            const scopeItems = parseScope(location.originalScope || location.scope);
+                            const scopeItems = parseScope(location.originalScope);
                             let requiredTechs = 0;
                             scopeItems.forEach(item => {
                                 const scopeTemplate = scopes.find(s => s.type.toLowerCase().includes(item.type.toLowerCase()));
@@ -1143,15 +1145,12 @@
                                 }
                                 
                                 location.remainingDuration -= workToday;
-                                location.scope = `${location.remainingDuration} min remaining`;
 
                                 if (location.remainingDuration <= 0) {
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
-                                    location.scope = location.originalScope;
-                                    delete location.originalScope;
                                 } else {
-                                    locationQueue.push(location);
+                                    locationsToRetry.push(location);
                                     scheduledThisLocation = true;
                                     didScheduleThisDay = true;
                                 }
@@ -1159,27 +1158,32 @@
                         }
                     }
                     if (!scheduledThisLocation) {
-                        locationQueue.push(location);
+                        locationsToRetry.push(location);
                     }
                 }
-                
-                if (!didScheduleThisDay && locationQueue.length === locationsToProcessThisDay.length) {
-                    unassignedLocations = [...locationQueue];
-                    locationQueue = [];
-                } else if (didScheduleThisDay) {
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
+                currentDate.setDate(currentDate.getDate() + 1);
             }
-
-            lastUnassignedLocations = unassignedLocations;
-            lastSchedule = schedule;
+            
+            unassignedLocations = locationsToRetry.filter(loc => loc.remainingDuration > 0);
             
             // Clean up temporary properties before saving
             locations.forEach(loc => {
                 delete loc.remainingDuration;
                 delete loc.originalScope;
             });
-
+            
+            // Restore original scope for all locations for display
+            unassignedLocations = unassignedLocations.map(loc => {
+                if (loc.originalScope) {
+                    loc.scope = loc.originalScope;
+                    delete loc.originalScope;
+                }
+                return loc;
+            });
+            
+            lastUnassignedLocations = unassignedLocations;
+            lastSchedule = schedule;
+            
             saveAllData();
             saveScheduleState();
             displaySchedule(schedule, unassignedLocations, false);
