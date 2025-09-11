@@ -10,7 +10,7 @@
         .container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);}
         h1 { color: #ff0000; margin-bottom: 30px; text-align: center; font-size: 2.5em; font-family: Arial, Helvetica, sans-serif; background: none; -webkit-background-clip: unset; background-clip: unset; -webkit-text-fill-color: unset;}
         .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0;}
-        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
+        .tab { padding: 12px 24px; background: none; border: none, cursor: pointer; font-size: 16px; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px;}
         .tab.active { color: #ff0000; border-bottom-color: #ff0000; font-weight: 600;}
         .tab:hover { color: #ff0000;}
         .section { display: none; animation: fadeIn 0.5s;}
@@ -678,7 +678,6 @@ function updateScopeList() {
             <button class="btn btn-danger" onclick="removeScope(${scope.id})">Remove</button>
         </div>
     `).join('');
-    updateScopeTemplateSelect();
 }
 function removeScope(id) {
     scopes = scopes.filter(s => s.id !== id);
@@ -713,131 +712,279 @@ function calculateJobDuration(scopeString) {
             s.type.toLowerCase().includes(item.type.toLowerCase())
         );
         if (scopeTemplate) {
-            totalDuration += scopeTemplate.duration * item.quantity;
+            totalDuration += item.quantity * scopeTemplate.duration * scopeTemplate.complexity;
+        } else {
+            totalDuration += item.quantity * 30; // fallback
         }
     });
     return totalDuration;
 }
 
-// --- Schedule Generation Logic ---
-function generateSchedule() {
-    // --- Early Exit for Empty Data ---
-    if (technicians.length === 0) {
-        alert("No technician teams found. Please add at least one technician team.");
-        return;
-    }
-    if (locations.length === 0) {
-        alert("No locations found. Please add at least one location.");
+// --- Helper: Calculate driving time between two addresses using Google Maps Distance Matrix API ---
+async function getDriveTimeMinutes(origin, destination) {
+    return new Promise((resolve) => {
+        if (!origin || !destination) return resolve(0);
+        if (!window.google || !window.google.maps || !window.google.maps.DistanceMatrixService) return resolve(30); // fallback
+        const service = new google.maps.DistanceMatrixService();
+        service.getDistanceMatrix(
+            {
+                origins: [origin],
+                destinations: [destination],
+                travelMode: google.maps.TravelMode.DRIVING,
+                unitSystem: google.maps.UnitSystem.IMPERIAL,
+            },
+            (response, status) => {
+                if (status === "OK" && response.rows[0].elements[0].status === "OK") {
+                    const duration = response.rows[0].elements[0].duration.value; // seconds
+                    resolve(Math.round(duration / 60));
+                } else {
+                    resolve(30); // fallback if error
+                }
+            }
+        );
+    });
+}
+
+// --- Schedule Generation ---
+// Helper: Get the next date for a given weekday after a start date
+function getNextDateForWeekday(startDate, weekday) {
+    const daysOfWeek = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const target = daysOfWeek.indexOf(weekday);
+    const date = new Date(startDate);
+    const diff = (target + 7 - date.getDay()) % 7;
+    date.setDate(date.getDate() + diff);
+    return date;
+}
+
+// Automatically calculate buffer: 10% of drive time, minimum 5min, maximum 30min
+function calculateAutoBuffer(driveTime) {
+    return Math.max(5, Math.min(30, Math.round(driveTime * 0.1 + 5)));
+}
+
+// --- Advanced Scheduling Logic ---
+async function generateSchedule() {
+    if (technicians.length === 0 || locations.length === 0) {
+        alert('Please add at least one technician team and one location');
         return;
     }
     if (scopes.length === 0) {
-        alert("No scope templates found. Please define at least one scope template.");
+        alert('Please define at least one scope template.');
         return;
     }
-
-    // --- Show Loading Indicator ---
     document.getElementById('scheduleOutput').innerHTML = '<h3>Generating schedule, please wait...</h3>';
-    setTimeout(() => {
-        // --- Main Scheduling Logic ---
-        const optimizedJobs = [];
-        const unassignedJobs = [];
-        const techAvailability = new Map();
 
-        // Initialize technician availability
-        technicians.forEach(tech => {
-            techAvailability.set(tech.id, {
-                totalHours: 0,
-                assignedJobs: [],
-                ...tech
-            });
-        });
+    const strategy = document.getElementById('optimizationStrategy').value;
+    let sortedLocations = [...locations];
+    if (strategy === 'priority') {
+        const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
+        sortedLocations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    }
+    const schedule = {};
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    let unassignedLocations = [...sortedLocations];
 
-        // --- Scope-Based Job Creation ---
-        locations.forEach(loc => {
-            const scopeItems = parseScope(loc.scope);
-            scopeItems.forEach(item => {
-                const scopeTemplate = scopes.find(s =>
-                    item.type.toLowerCase().includes(s.type.toLowerCase()) ||
-                    s.type.toLowerCase().includes(item.type.toLowerCase())
-                );
-                if (scopeTemplate) {
-                    const job = {
-                        id: Date.now() + Math.random(),
-                        location: loc,
-                        scope: scopeTemplate,
-                        technicians: [],
-                        status: 'pending'
-                    };
-                    unassignedJobs.push(job);
+    // Start from today for scheduling
+    const today = new Date();
+    let weekStart = new Date(today);
+    weekStart.setHours(0,0,0,0);
+    if (weekStart.getDay() !== 1) { // 1 = Monday
+        weekStart = getNextDateForWeekday(today, "Monday");
+        weekStart.setHours(0,0,0,0);
+    }
+
+    // Precompute drive times for all tech teams to all locations (address to address)
+    const driveTimeCache = {};
+    async function getDriveTimeCached(tech, location) {
+        const key = `${tech.address}|${location.address}`;
+        if (driveTimeCache[key] !== undefined) return driveTimeCache[key];
+        const minutes = await getDriveTimeMinutes(tech.address, location.address);
+        driveTimeCache[key] = minutes;
+        return minutes;
+    }
+
+    // For each day, for each tech, assign jobs
+    for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
+        const day = days[dayIdx];
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(weekStart.getDate() + dayIdx);
+        schedule[day] = { date: dayDate, teams: [] };
+        const availableTechs = technicians.filter(tech => tech.days.includes(day));
+        for (const tech of availableTechs) {
+            const startTime = new Date(dayDate);
+            const [startHour, startMin] = tech.startTime.split(':').map(Number);
+            startTime.setHours(startHour, startMin, 0, 0);
+            const endTime = new Date(dayDate);
+            const [endHour, endMin] = tech.endTime.split(':').map(Number);
+            endTime.setHours(endHour, endMin, 0, 0);
+
+            let currentTime = new Date(startTime);
+            let lastAddress = tech.address || tech.location || "";
+            const assignments = [];
+            let i = 0;
+            while (i < unassignedLocations.length && currentTime < endTime) {
+                const location = unassignedLocations[i];
+
+                // --- Specialization Matching ---
+                const scopeItems = parseScope(location.scope);
+                let allScopesMatch = true;
+                for (const item of scopeItems) {
+                    const scopeTemplate = scopes.find(s =>
+                        item.type.toLowerCase().includes(s.type.toLowerCase()) ||
+                        s.type.toLowerCase().includes(item.type.toLowerCase())
+                    );
+                    if (scopeTemplate) {
+                        if (scopeTemplate.type && scopeTemplate.type.trim() !== "") {
+                            if (tech.specializations.length > 0) {
+                                if (!tech.specializations.some(sp =>
+                                    sp.toLowerCase() === scopeTemplate.type.toLowerCase()
+                                )) {
+                                    allScopesMatch = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (tech.count < scopeTemplate.techCount) {
+                            allScopesMatch = false;
+                            break;
+                        }
+                    }
                 }
-            });
-        });
+                if (!allScopesMatch) {
+                    i++;
+                    continue;
+                }
 
-        // --- Sort Technicians by Availability (ascending) ---
-        const sortedTechnicians = Array.from(techAvailability.values()).sort((a, b) => a.totalHours - b.totalHours);
+                // --- Site Availability (basic: check if day is in availability string) ---
+                if (location.availability && location.availability.trim() !== "") {
+                    const avail = location.availability.toLowerCase();
+                    if (!avail.includes(day.toLowerCase())) {
+                        i++;
+                        continue;
+                    }
+                }
 
-        // --- Job Assignment ---
-        unassignedJobs.forEach(job => {
-            for (let i = 0; i < sortedTechnicians.length; i++) {
-                const tech = sortedTechnicians[i];
-                const jobDuration = calculateJobDuration(job.scope.type);
-                const availableTime = tech.endTime - tech.startTime - tech.totalHours;
+                // --- Drive time and buffer ---
+                const driveTime = await getDriveTimeCached({address: lastAddress}, location);
+                const bufferTime = calculateAutoBuffer(driveTime);
+                const jobDuration = calculateJobDuration(location.scope);
+                const totalTime = driveTime + jobDuration + bufferTime;
+                const jobEndTime = new Date(currentTime.getTime() + totalTime * 60000);
 
-                if (availableTime >= jobDuration) {
-                    job.technicians.push(tech.id);
-                    techAvailability.get(tech.id).assignedJobs.push(job.id);
-                    techAvailability.get(tech.id).totalHours += jobDuration;
-                    break;
+                if (jobEndTime <= endTime) {
+                    assignments.push({
+                        location: location,
+                        startDateTime: new Date(currentTime),
+                        endDateTime: new Date(jobEndTime),
+                        duration: jobDuration,
+                        driveTime: driveTime,
+                        bufferTime: bufferTime
+                    });
+                    currentTime = jobEndTime;
+                    lastAddress = location.address;
+                    unassignedLocations.splice(i, 1);
+                } else {
+                    i++;
                 }
             }
-        });
-
-        // --- Generate HTML for Schedule Output ---
-        let outputHtml = '';
-        const groupedByLocation = new Map();
-
-        unassignedJobs.forEach(job => {
-            const locationKey = `${job.location.siteId}-${job.location.name}`;
-            if (!groupedByLocation.has(locationKey)) {
-                groupedByLocation.set(locationKey, {
-                    location: job.location,
-                    jobs: []
+            if (assignments.length > 0) {
+                schedule[day].teams.push({
+                    team: tech,
+                    assignments: assignments
                 });
             }
-            groupedByLocation.get(locationKey).jobs.push(job);
-        });
+        }
+    }
+    displaySchedule(schedule, unassignedLocations);
+    displayMetrics(schedule, unassignedLocations);
+}
 
-        groupedByLocation.forEach(group => {
-            outputHtml += `<div class="schedule-day">
-                <h4>${group.location.siteId} - ${group.location.name}</h4>
-                <p><strong>Address:</strong> ${group.location.address}</p>
-                <p><strong>Scope:</strong> ${group.location.scope}</p>
-                <p><strong>Priority:</strong> <span class="tech-tag">${group.location.priority}</span></p>
-                <p><strong>Availability:</strong> ${group.location.availability}</p>
-                <p><strong>Contact:</strong> ${group.location.contact}</p>
-                <p><strong>Notes:</strong> ${group.location.notes}</p>
-            </div>`;
-            group.jobs.forEach(job => {
-                outputHtml += `<div class="assignment">
-                    <p><strong>Job ID:</strong> ${job.id}</p>
-                    <p><strong>Scope Type:</strong> ${job.scope.type}</p>
-                    <p><strong>Duration:</strong> ${calculateJobDuration(job.scope.type)} minutes</p>
-                    <p><strong>Assigned Technicians:</strong> ${job.technicians.join(', ')}</p>
-                    <p><strong>Status:</strong> ${job.status}</p>
-                </div>`;
+// --- Update displaySchedule to show date, time, drive, and buffer clearly ---
+function displaySchedule(schedule, unassigned) {
+    const output = document.getElementById('scheduleOutput');
+    let html = '<h3>📅 Optimized Installation Schedule</h3>';
+    Object.entries(schedule).forEach(([day, dayObj]) => {
+        const { date, teams } = dayObj;
+        if (teams.length > 0) {
+            html += `<div class="schedule-day">`;
+            html += `<h4>${day} &mdash; ${date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</h4>`;
+            teams.forEach(teamSchedule => {
+                html += `<div class="assignment">`;
+                html += `<p><strong>${teamSchedule.team.teamName}</strong> (${teamSchedule.team.count} techs)</p>`;
+                teamSchedule.assignments.forEach(assignment => {
+                    html += `<div style="margin-left: 20px; margin-top: 10px;">`;
+                    html += `<span class="tech-tag">${assignment.startDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${assignment.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+                    html += `<span class="location-tag">${assignment.location.siteId}</span>`;
+                    html += `<p style="margin-top: 5px;">📍 ${assignment.location.address}</p>`;
+                    html += `<p>📋 ${assignment.location.scope}</p>`;
+                    html += `<p>⏱️ Est. Duration: ${assignment.duration} minutes</p>`;
+                    html += `<p>🚗 Est. Drive: ${assignment.driveTime !== undefined ? assignment.driveTime + ' min' : 'N/A'} | 🕒 Buffer: ${assignment.bufferTime} min</p>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+    });
+    if (unassigned.length > 0) {
+        html += `<div class="error">`;
+        html += `<h4>⚠️ Unassigned Locations (${unassigned.length})</h4>`;
+        unassigned.forEach(loc => {
+            html += `<p>• ${loc.siteId} - ${loc.address} (${loc.scope})</p>`;
+        });
+        html += `<p><strong>Reasons may include: insufficient techs, missing provider/certification, or site not available that day.</strong></p>`;
+        html += `<p><strong>Consider adding more technician teams, updating certifications, or extending working hours.</strong></p>`;
+        html += `</div>`;
+    }
+    output.innerHTML = html;
+}
+
+// --- Metrics and Reporting ---
+function displayMetrics(schedule, unassigned) {
+    const metrics = document.getElementById('metrics');
+    let totalJobs = 0;
+    let totalTechHours = 0;
+    let totalLocations = locations.length;
+    Object.values(schedule).forEach(dayObj => {
+        if (!dayObj.teams) return;
+        dayObj.teams.forEach(teamSchedule => {
+            totalJobs += teamSchedule.assignments.length;
+            teamSchedule.assignments.forEach(assignment => {
+                totalTechHours += (assignment.duration / 60) * teamSchedule.team.count;
             });
         });
-
-        document.getElementById('scheduleOutput').innerHTML = outputHtml || '<h3>No jobs assigned. Please check technician availability and job scopes.</h3>';
-    }, 1000);
+    });
+    const completionRate = totalLocations > 0 ?
+        ((totalLocations - unassigned.length) / totalLocations * 100).toFixed(1) : 0;
+    metrics.innerHTML = `
+        <div class="metric-card">
+            <div class="metric-value">${totalLocations - unassigned.length}/${totalLocations}</div>
+            <div class="metric-label">Locations Scheduled</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">${completionRate}%</div>
+            <div class="metric-label">Coverage Rate</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">${totalTechHours.toFixed(1)}</div>
+            <div class="metric-label">Total Tech Hours</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">${technicians.reduce((sum, t) => sum + t.count, 0)}</div>
+            <div class="metric-label">Total Technicians</div>
+        </div>
+    `;
 }
 
 // --- Initialization ---
-loadAllData();
-updateTechnicianList();
-updateLocationList();
-updateScopeList();
-setCurrentTab(getCurrentTabName());
+window.addEventListener('DOMContentLoaded', function() {
+    loadAllData();
+    updateTechnicianList();
+    updateLocationList();
+    updateScopeList();
+    // Restore tab
+    const savedTab = localStorage.getItem('currentTab') || 'technicians';
+    setCurrentTab(savedTab);
+});
     </script>
 </body>
 </html>
