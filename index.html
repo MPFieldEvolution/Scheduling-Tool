@@ -807,6 +807,11 @@ window.addEventListener('DOMContentLoaded', function() {
         return Math.max(5, Math.min(30, Math.round(driveTime * 0.1 + 5)));
     }
 
+    // --- Helper: Calculate buffer (always at least 15 minutes) ---
+    function calculateAutoBuffer(/*driveTime*/) {
+        return 15; // Always at least 15 minutes buffer before jobs
+    }
+
     // --- Advanced Scheduling Logic ---
     async function generateSchedule() {
         if (technicians.length === 0 || locations.length === 0) {
@@ -911,15 +916,16 @@ window.addEventListener('DOMContentLoaded', function() {
 
                     // --- Drive time and buffer ---
                     const driveTime = await getDriveTimeCached({address: lastAddress}, location);
-                    const bufferTime = calculateAutoBuffer(driveTime);
+                    const bufferTime = calculateAutoBuffer(); // Always 15 min
                     const jobDuration = calculateJobDuration(location.scope);
                     const totalTime = driveTime + jobDuration + bufferTime;
-                    const jobEndTime = new Date(currentTime.getTime() + totalTime * 60000);
+                    const jobStartTime = new Date(currentTime.getTime() + bufferTime * 60000); // buffer before job
+                    const jobEndTime = new Date(jobStartTime.getTime() + jobDuration * 60000);
 
                     if (jobEndTime <= endTime) {
                         assignments.push({
                             location: location,
-                            startDateTime: new Date(currentTime),
+                            startDateTime: new Date(jobStartTime),
                             endDateTime: new Date(jobEndTime),
                             duration: jobDuration,
                             driveTime: driveTime,
