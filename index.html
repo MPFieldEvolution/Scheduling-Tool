@@ -1046,6 +1046,19 @@ window.addEventListener('DOMContentLoaded', function() {
         updateScopeList();
         updateScheduleTabContent();
     });
+
+    // Add this utility function before generateSchedule
+function getNextDateForWeekday(date, weekdayName) {
+    const weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const targetDay = weekdays.indexOf(weekdayName.toLowerCase());
+    if (targetDay === -1) return new Date(date);
+    const currentDay = date.getDay();
+    let daysToAdd = (targetDay - currentDay + 7) % 7;
+    if (daysToAdd === 0) daysToAdd = 7; // always next week if today
+    const nextDate = new Date(date);
+    nextDate.setDate(date.getDate() + daysToAdd);
+    return nextDate;
+}
     </script>
 </body>
 </html>
