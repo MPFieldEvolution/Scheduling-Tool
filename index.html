@@ -332,8 +332,18 @@
             const lastSched = localStorage.getItem('lastSchedule');
             const lastUnassigned = localStorage.getItem('lastUnassignedLocations');
 
-            if (techs) technicians = JSON.parse(techs);
-            if (locs) locations = JSON.parse(locs);
+            if (techs) {
+                technicians = JSON.parse(techs);
+                technicians.forEach(tech => {
+                    if (!tech.providers) tech.providers = [];
+                });
+            }
+            if (locs) {
+                locations = JSON.parse(locs);
+                locations.forEach(loc => {
+                    if (!loc.days) loc.days = [];
+                });
+            }
             if (scps) scopes = JSON.parse(scps);
             if (projs) projectProviders = JSON.parse(projs);
             if (lastSched) {
@@ -776,7 +786,7 @@
                         <p><strong>Address:</strong> ${loc.address}</p>
                         <p><strong>Scope:</strong> ${loc.scope}</p>
                         <p><strong>Priority:</strong> <span class="tech-tag">${loc.priority}</span></p>
-                        <p><strong>Availability:</strong> ${loc.days.join(', ')} (${loc.startTime} - ${loc.endTime})</p>
+                        <p><strong>Availability:</strong> ${(loc.days || []).join(', ')} (${loc.startTime} - ${loc.endTime})</p>
                         <p><strong>Providers:</strong> ${(projectProviders || []).join(', ') || 'None'}</p>
                         ${loc.contact ? `<p><strong>Contact:</strong> ${loc.contact}</p>` : ''}
                         ${loc.notes ? `<p><strong>Notes:</strong> ${loc.notes}</p>` : ''}
@@ -792,7 +802,7 @@
             if (document.getElementById('locationAddress')) document.getElementById('locationAddress').value = loc.address;
             if (document.getElementById('locationScope')) document.getElementById('locationScope').value = loc.scope;
             if (document.getElementById('locationPriority')) document.getElementById('locationPriority').value = loc.priority;
-            setSelectedLocationDays(loc.days);
+            setSelectedLocationDays(loc.days || []);
             if (document.getElementById('locationStartTime')) document.getElementById('locationStartTime').value = loc.startTime;
             if (document.getElementById('locationEndTime')) document.getElementById('locationEndTime').value = loc.endTime;
             if (document.getElementById('locationContact')) document.getElementById('locationContact').value = loc.contact;
