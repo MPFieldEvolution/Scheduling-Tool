@@ -928,7 +928,7 @@
                         }
                     }
 
-                    if (assignedTechCount < requiredTechs) continue;
+                    if (assignedTechCount < requiredTechs || !primaryTeamDriveInfo) continue;
                     
                     const teamStart = candidateTeams[0].startTime.split(':');
                     const teamEnd = candidateTeams[0].endTime.split(':');
@@ -1122,7 +1122,7 @@
                         }
                     }
 
-                    if (assignedTechCount < requiredTechs) continue;
+                    if (assignedTechCount < requiredTechs || !primaryTeamDriveInfo) continue;
                     
                     const workToday = Math.min(jobDurationMinutes, availableWorkMinutes);
                     const jobStartTime = new Date(dayStartTime);
@@ -1210,7 +1210,11 @@
                                     teams: []
                                 };
                             }
-                            assignmentsByLocation[locationId].teams.push(...assignment.assignedTeams);
+                            // Check for duplicates before pushing
+                            const existingTeam = assignmentsByLocation[locationId].teams.find(t => t.teamId === teamSchedule.team.id);
+                            if (!existingTeam) {
+                                assignmentsByLocation[locationId].teams.push(...assignment.assignedTeams);
+                            }
                         });
                     });
 
@@ -1228,7 +1232,9 @@
                         // List assigned teams and their tech count for this specific job
                         html += `<p style="margin-top: 5px;"><strong>Assigned Teams:</strong></p>`;
                         html += `<ul>`;
-                        assignment.teams.forEach(team => {
+                        // Filter for unique teams assigned to this job
+                        const uniqueTeams = assignment.teams.filter((v, i, a) => a.findIndex(t => t.teamId === v.teamId) === i);
+                        uniqueTeams.forEach(team => {
                             const originalTeam = technicians.find(t => t.id === team.teamId);
                              const teamName = originalTeam ? originalTeam.teamName : `Team ID: ${team.teamId}`;
                             html += `<li style="margin-left: 20px;">${teamName} - ${team.assignedTechs} tech${team.assignedTechs > 1 ? 's' : ''}</li>`;
